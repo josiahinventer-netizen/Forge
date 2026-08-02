@@ -153,8 +153,9 @@ export function ActivitiesPage() {
           <form
             onSubmit={async (event) => {
               event.preventDefault();
-              await db.activities.put({ ...edit, updatedAt: now() });
-              setEdit(null);
+              const saved = { ...edit, updatedAt: now() };
+              await db.activities.put(saved);
+              setEdit(saved);
             }}
           >
             <Field label="What did you do?">
@@ -327,7 +328,16 @@ export function ActivitiesPage() {
               saved={activities.some((item) => item.id === edit.id)}
             />
             <div className="actions">
-              <button>Save activity</button>
+              <button>
+                {activities.some((item) => item.id === edit.id)
+                  ? 'Save changes'
+                  : 'Save and add evidence'}
+              </button>
+              {activities.some((item) => item.id === edit.id) && (
+                <button type="button" className="secondary" onClick={() => setEdit(null)}>
+                  Done
+                </button>
+              )}
               {activities.some((item) => item.id === edit.id) && (
                 <button
                   type="button"

@@ -3,15 +3,17 @@ import { Link } from 'react-router-dom';
 import { Card, Page } from '../components/UI';
 import { db } from '../database/db';
 import { assessCapability, rankClosestCapabilities } from '../services/capabilityAvailability';
+import { buildProgressReview } from '../services/progressReview';
 
 export function DashboardPage() {
   const counts = useLiveQuery(async () => {
-    const [skills, resources, capabilities, todos, activities] = await Promise.all([
+    const [skills, resources, capabilities, todos, activities, attachments] = await Promise.all([
       db.skills.toArray(),
       db.resources.toArray(),
       db.capabilities.filter((capability) => !capability.archived).toArray(),
       db.todos.filter((todo) => !todo.archived).toArray(),
       db.activities.filter((activity) => !activity.archived).toArray(),
+      db.attachments.filter((attachment) => !attachment.archived).toArray(),
     ]);
     const [activeSkills, archivedSkills, activeResources, archivedResources] = [
       skills.filter((skill) => !skill.archived).length,
@@ -40,6 +42,7 @@ export function DashboardPage() {
       ).length,
       activities: activities.length,
       closest: rankClosestCapabilities(capabilities, skills, resources).slice(0, 3),
+      review: buildProgressReview(activities, skills, capabilities, resources, attachments),
     };
   }, []);
 
@@ -107,6 +110,9 @@ export function DashboardPage() {
             <Link className="button secondary" to="/todos">
               Plan a todo
             </Link>
+            <Link className="button secondary" to="/activities">
+              Log progress
+            </Link>
           </div>
         </Card>
         <Card>
@@ -133,6 +139,64 @@ export function DashboardPage() {
             <p className="muted">Add capability requirements to see the nearest useful outcomes.</p>
           )}
         </Card>
+        <Card className="weekly-review">
+          <p className="eyebrow">LAST 7 DAYS</p>
+          <h2>Explainable progress</h2>
+          {counts?.review.activityCount ? (
+            <>
+              <div className="review-stats">
+                <span>
+                  <b>{counts.review.activityCount}</b> activities
+                </span>
+                <span>
+                  <b>{counts.review.totalActivityMinutes}</b> total minutes
+                </span>
+                <span>
+                  <b>{counts.review.practicalMinutes}</b> practical minutes
+                </span>
+                <span>
+                  <b>{counts.review.photoEvidenceCount}</b> evidence photos
+                </span>
+              </div>
+              {counts.review.skills.slice(0, 3).map((skill) => (
+                <div className="next" key={skill.skillId}>
+                  <strong>{skill.skillName}</strong>
+                  <p className="muted">
+                    {skill.totalMinutes} minutes recorded · {skill.practicalMinutes} practical
+                  </p>
+                </div>
+              ))}
+              {counts.review.observations.map((observation) => (
+                <p key={observation}>{observation}</p>
+              ))}
+              <p className="evidence">
+                <strong>Review suggestion:</strong> {counts.review.suggestedReview}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="muted">No activity evidence has been logged in the last seven days.</p>
+              <p>{counts?.review.suggestedReview}</p>
+            </>
+          )}
+        </Card>
+        {counts?.review.capabilities.length ? (
+          <Card>
+            <h2>Capabilities you worked toward</h2>
+            {counts.review.capabilities.map((line) => (
+              <div className="next" key={line.capabilityId}>
+                <strong>{line.capabilityName}</strong>
+                <p className="muted">
+                  {line.linkedActivityCount} linked activit
+                  {line.linkedActivityCount === 1 ? 'y' : 'ies'} ·{' '}
+                  {line.assessment.metRequirementCount} of {line.assessment.totalRequirementCount}{' '}
+                  requirements met · {line.assessment.status}
+                </p>
+                {line.assessment.recommendedStep && <p>{line.assessment.recommendedStep}</p>}
+              </div>
+            ))}
+          </Card>
+        ) : null}
       </div>
     </Page>
   );

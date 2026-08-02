@@ -16,6 +16,7 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Opt-in system notifications and browser speech dictation for fast todo capture
 - Purpose-aware activity/evidence ledger linking real work to existing records, with distinct practice types
 - Explainable skill activity summaries and closest-capability next steps without opaque automatic level awards
+- Seven-day progress reviews showing study versus practical work, outcomes, evidence photos, verification status, and explicitly linked capability movement
 - Capability creation, editing, detail viewing, search, and archiving
 - Skill requirements with separate minimum knowledge and practical levels
 - Resource requirements with quantities and units
