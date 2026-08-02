@@ -56,6 +56,25 @@ describe('JSON export', () => {
       tags: [],
       archived: false,
     });
+    await database.attachments.put({
+      id: 'evidence',
+      ownerType: 'skill',
+      ownerId: 'active',
+      kind: 'Project result',
+      fileName: 'evidence.jpg',
+      mimeType: 'image/jpeg',
+      byteSize: 3,
+      width: 1,
+      height: 1,
+      sha256: 'c'.repeat(64),
+      dataUrl: 'data:image/jpeg;base64,YWJj',
+      verificationStatus: 'Confirmed',
+      notes: '',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+      tags: [],
+      archived: false,
+    });
 
     const bundle = await createExport(database);
     const parsed = JSON.parse(JSON.stringify(bundle)) as typeof bundle;
@@ -67,5 +86,6 @@ describe('JSON export', () => {
     expect(parsed.records.resources).toEqual([]);
     expect(parsed.records.capabilities).toHaveLength(1);
     expect(parsed.records.capabilities[0]?.requiredSkills[0]?.skillId).toBe('active');
+    expect(parsed.records.attachments?.[0]?.ownerId).toBe('active');
   });
 });

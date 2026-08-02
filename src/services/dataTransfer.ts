@@ -4,6 +4,7 @@ import type {
   CapabilityResourceRequirement,
   CapabilitySkillRequirement,
   ExportBundle,
+  EvidenceAttachment,
   Resource,
   Skill,
 } from '../types/models';
@@ -90,6 +91,32 @@ export function isResource(value: unknown): value is Resource {
   );
 }
 
+export function isAttachment(value: unknown): value is EvidenceAttachment {
+  if (!isRecord(value) || !hasBaseRecord(value)) return false;
+  return (
+    ['resource', 'skill', 'capability'].includes(String(value.ownerType)) &&
+    typeof value.ownerId === 'string' &&
+    value.ownerId.length > 0 &&
+    ['Item photo', 'Serial label', 'Receipt', 'Condition', 'Project result', 'Other'].includes(
+      String(value.kind),
+    ) &&
+    typeof value.fileName === 'string' &&
+    ['image/jpeg', 'image/png', 'image/webp'].includes(String(value.mimeType)) &&
+    isFiniteNonnegative(value.byteSize) &&
+    isFiniteNonnegative(value.width) &&
+    isFiniteNonnegative(value.height) &&
+    typeof value.sha256 === 'string' &&
+    /^[a-f0-9]{64}$/.test(value.sha256) &&
+    typeof value.dataUrl === 'string' &&
+    value.dataUrl.length <= 500_000 &&
+    value.dataUrl.startsWith(`data:${String(value.mimeType)};base64,`) &&
+    ['Confirmed', 'Document-supported', 'Activity-supported', 'Inferred', 'Needs review'].includes(
+      String(value.verificationStatus),
+    ) &&
+    typeof value.notes === 'string'
+  );
+}
+
 function isSkillRequirement(value: unknown): value is CapabilitySkillRequirement {
   return (
     isRecord(value) &&
@@ -149,11 +176,14 @@ export function validateImport(value: unknown): ImportValidationResult {
   const skills = value.records.skills;
   const resources = value.records.resources;
   const capabilities = value.records.capabilities;
+  const attachments = value.records.attachments ?? [];
   if (!Array.isArray(skills) || !skills.every(isSkill)) errors.push('Skills contain invalid data.');
   if (!Array.isArray(resources) || !resources.every(isResource))
     errors.push('Resources contain invalid data.');
   if (!Array.isArray(capabilities) || !capabilities.every(isCapability))
     errors.push('Capabilities contain invalid data.');
+  if (!Array.isArray(attachments) || !attachments.every(isAttachment))
+    errors.push('Attachments contain invalid data.');
   if (errors.length) return { valid: false, errors };
 
   const bundle = value as unknown as ExportBundle;
@@ -161,6 +191,8 @@ export function validateImport(value: unknown): ImportValidationResult {
   if (!hasUniqueIds(bundle.records.resources)) errors.push('Resources contain duplicate IDs.');
   if (!hasUniqueIds(bundle.records.capabilities))
     errors.push('Capabilities contain duplicate IDs.');
+  if (!hasUniqueIds(bundle.records.attachments ?? []))
+    errors.push('Attachments contain duplicate IDs.');
   return errors.length ? { valid: false, errors } : { valid: true, bundle };
 }
 
@@ -182,17 +214,19 @@ export async function importData(
 ): Promise<ImportResult> {
   await database.transaction(
     'rw',
-    [database.skills, database.resources, database.capabilities],
+    [database.skills, database.resources, database.capabilities, database.attachments],
     async () => {
       if (mode === 'replace') {
         await Promise.all([
           database.skills.clear(),
           database.resources.clear(),
           database.capabilities.clear(),
+          database.attachments.clear(),
         ]);
         await database.skills.bulkPut(bundle.records.skills);
         await database.resources.bulkPut(bundle.records.resources);
         await database.capabilities.bulkPut(bundle.records.capabilities);
+        await database.attachments.bulkPut(bundle.records.attachments ?? []);
         return;
       }
 
@@ -204,6 +238,9 @@ export async function importData(
       );
       await database.capabilities.bulkPut(
         newerRecords(await database.capabilities.toArray(), bundle.records.capabilities),
+      );
+      await database.attachments.bulkPut(
+        newerRecords(await database.attachments.toArray(), bundle.records.attachments ?? []),
       );
     },
   );
@@ -223,6 +260,7 @@ export async function createExport(database: ForgeDatabase = db): Promise<Export
       skills: await database.skills.toArray(),
       resources: await database.resources.toArray(),
       capabilities: await database.capabilities.toArray(),
+      attachments: await database.attachments.toArray(),
     },
   };
 }

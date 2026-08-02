@@ -70,6 +70,25 @@ describe('device synchronization', () => {
       archived: false,
     };
     const newer = { ...local, practicalLevel: 3 as const, updatedAt: '2026-02-01T00:00:00.000Z' };
+    const attachment = {
+      id: 'photo-1',
+      ownerType: 'skill' as const,
+      ownerId: local.id,
+      kind: 'Project result' as const,
+      fileName: 'result.jpg',
+      mimeType: 'image/jpeg' as const,
+      byteSize: 3,
+      width: 1,
+      height: 1,
+      sha256: 'b'.repeat(64),
+      dataUrl: 'data:image/jpeg;base64,YWJj',
+      verificationStatus: 'Confirmed' as const,
+      notes: '',
+      createdAt: '2026-02-01T00:00:00.000Z',
+      updatedAt: '2026-02-01T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    };
     await database.skills.put(local);
     await database.syncSettings.put({
       id: 'primary',
@@ -95,16 +114,25 @@ describe('device synchronization', () => {
               deleted: false,
               payload: newer,
             },
+            {
+              revision: 7,
+              entityType: 'attachment',
+              recordId: attachment.id,
+              updatedAt: attachment.updatedAt,
+              deleted: false,
+              payload: attachment,
+            },
           ],
-          cursor: 6,
+          cursor: 7,
         }),
       );
 
     const result = await syncNow(database, fetcher);
 
-    expect(result).toEqual({ pushed: 1, pulled: 1 });
+    expect(result).toEqual({ pushed: 1, pulled: 2 });
     expect((await database.skills.get('carpentry'))?.practicalLevel).toBe(3);
-    expect((await database.syncSettings.get('primary'))?.cursor).toBe(6);
+    expect((await database.syncSettings.get('primary'))?.cursor).toBe(7);
+    expect((await database.attachments.get('photo-1'))?.ownerId).toBe('carpentry');
     expect(fetcher.mock.calls[1]?.[0]).toBe('https://computer.local:8787/api/sync/pull?cursor=0');
     const pushedBody = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
       changes: Array<{ recordId: string }>;

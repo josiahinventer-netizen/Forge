@@ -123,6 +123,7 @@ const defaults: Record<SyncEntityType, Record<string, unknown>> = {
     evidenceNotes: '',
     photoDataUrls: [],
   },
+  attachment: {},
   capability: { description: '', category: 'General', requiredSkills: [], requiredResources: [] },
 };
 
@@ -151,6 +152,19 @@ export function createDriveArchive(
       capabilities: live
         .filter((record) => record.entityType === 'capability')
         .map((record) => record.payload),
+      attachments: live
+        .filter((record) => record.entityType === 'attachment')
+        .map((record) => {
+          const { dataUrl: _dataUrl, ...metadata } = record.payload ?? {};
+          void _dataUrl;
+          const extension =
+            metadata.mimeType === 'image/png'
+              ? 'png'
+              : metadata.mimeType === 'image/webp'
+                ? 'webp'
+                : 'jpg';
+          return { ...metadata, driveFile: `Evidence/${record.recordId}.${extension}` };
+        }),
     },
     deletedRecords: records
       .filter((record) => record.deleted)
@@ -319,7 +333,7 @@ export class ForgeDriveBridge {
   }
 
   initialize() {
-    for (const folder of ['', 'Inbox', 'Processed', 'Rejected', 'Backups', 'Excel'])
+    for (const folder of ['', 'Inbox', 'Processed', 'Rejected', 'Backups', 'Excel', 'Evidence'])
       mkdirSync(join(this.options.driveDirectory, folder), { recursive: true });
     atomicWrite(
       join(this.options.driveDirectory, 'CHATGPT-FORGE-INSTRUCTIONS.md'),
@@ -371,6 +385,19 @@ export class ForgeDriveBridge {
     atomicWrite(join(this.options.driveDirectory, 'Backups', `forge-archive-${stamp}.json`), json);
     for (const [name, contents] of Object.entries(archiveCsvFiles(archive)))
       atomicWrite(join(this.options.driveDirectory, 'Excel', name), contents);
+    for (const attachment of this.options.store
+      .archiveRecords(this.accountId, ['attachment'])
+      .filter((record) => !record.deleted && typeof record.payload?.dataUrl === 'string')) {
+      const dataUrl = String(attachment.payload?.dataUrl);
+      const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(dataUrl);
+      if (!match) continue;
+      const extension =
+        match[1] === 'image/png' ? 'png' : match[1] === 'image/webp' ? 'webp' : 'jpg';
+      writeFileSync(
+        join(this.options.driveDirectory, 'Evidence', `${attachment.recordId}.${extension}`),
+        Buffer.from(match[2]!, 'base64'),
+      );
+    }
     return true;
   }
 

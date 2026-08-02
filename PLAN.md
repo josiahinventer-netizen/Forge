@@ -56,7 +56,9 @@
 - [x] Dexie schema 5 migration preserving existing resources
 - [x] Drive inbox and local MCP support for richer resource metadata
 - [x] Resource editing interface for identification and lifecycle fields
-- [ ] Bounded photo and serial-label evidence capture
+- [x] Bounded phone camera and serial-label evidence capture
+- [x] Independently synchronized, hash-deduplicated attachment records
+- [x] Google Drive evidence-file mirroring for ChatGPT access
 - [ ] Evidence history with multiple attributed sources
 - [ ] Explainable suggested capability connections
 

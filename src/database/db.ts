@@ -1,13 +1,20 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Capability, Resource, Skill, SyncSettings } from '../types/models';
+import type {
+  Capability,
+  EvidenceAttachment,
+  Resource,
+  Skill,
+  SyncSettings,
+} from '../types/models';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
   resources!: EntityTable<Resource, 'id'>;
   capabilities!: EntityTable<Capability, 'id'>;
   syncSettings!: EntityTable<SyncSettings, 'id'>;
+  attachments!: EntityTable<EvidenceAttachment, 'id'>;
 
   constructor(name = 'forge') {
     super(name);
@@ -93,6 +100,16 @@ export class ForgeDatabase extends Dexie {
             resource.photoDataUrls ??= [];
           });
       });
+
+    // V6 stores bounded image evidence as independently synchronized records.
+    this.version(6).stores({
+      skills: 'id, name, category, archived, updatedAt, *tags',
+      resources:
+        'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
+      capabilities: 'id, name, category, archived, updatedAt, *tags',
+      attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+      syncSettings: 'id',
+    });
   }
 }
 
