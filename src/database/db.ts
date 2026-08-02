@@ -8,9 +8,10 @@ import type {
   SyncSettings,
   Todo,
   TodoOccurrence,
+  ReminderEvent,
 } from '../types/models';
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
@@ -21,6 +22,7 @@ export class ForgeDatabase extends Dexie {
   todos!: EntityTable<Todo, 'id'>;
   activities!: EntityTable<Activity, 'id'>;
   todoOccurrences!: EntityTable<TodoOccurrence, 'id'>;
+  reminderEvents!: EntityTable<ReminderEvent, 'id'>;
 
   constructor(name = 'forge') {
     super(name);
@@ -162,6 +164,21 @@ export class ForgeDatabase extends Dexie {
       attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
       todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
       todoOccurrences: 'id, todoId, completedAt, archived, updatedAt, *tags',
+      activities: 'id, title, occurredAt, archived, updatedAt, *tags',
+      syncSettings: 'id',
+    });
+
+    // V11 persists reminder detection and user actions so missed reminders remain recoverable.
+    this.version(11).stores({
+      skills: 'id, name, category, archived, updatedAt, *tags',
+      resources:
+        'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
+      capabilities: 'id, name, category, archived, updatedAt, *tags',
+      attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+      todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
+      todoOccurrences: 'id, todoId, completedAt, archived, updatedAt, *tags',
+      reminderEvents:
+        'id, todoId, occurrenceKey, detectedAt, acknowledgedAt, action, archived, updatedAt',
       activities: 'id, title, occurredAt, archived, updatedAt, *tags',
       syncSettings: 'id',
     });

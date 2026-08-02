@@ -9,6 +9,7 @@ import type {
   SyncSettings,
   Todo,
   TodoOccurrence,
+  ReminderEvent,
 } from '../types/models';
 import {
   isActivity,
@@ -18,10 +19,18 @@ import {
   isSkill,
   isTodo,
   isTodoOccurrence,
+  isReminderEvent,
 } from './dataTransfer';
 
 type EntityType =
-  'skill' | 'resource' | 'capability' | 'attachment' | 'todo' | 'activity' | 'todoOccurrence';
+  | 'skill'
+  | 'resource'
+  | 'capability'
+  | 'attachment'
+  | 'todo'
+  | 'activity'
+  | 'todoOccurrence'
+  | 'reminderEvent';
 
 interface SyncChange {
   revision: number;
@@ -75,7 +84,8 @@ const isSyncChange = (value: unknown): value is SyncChange => {
       change.entityType === 'attachment' ||
       change.entityType === 'todo' ||
       change.entityType === 'activity' ||
-      change.entityType === 'todoOccurrence') &&
+      change.entityType === 'todoOccurrence' ||
+      change.entityType === 'reminderEvent') &&
     typeof change.recordId === 'string' &&
     typeof change.updatedAt === 'string' &&
     !Number.isNaN(Date.parse(change.updatedAt)) &&
@@ -158,7 +168,15 @@ export async function connectDevice(
 }
 
 const payload = (
-  record: Skill | Resource | Capability | EvidenceAttachment | Todo | Activity | TodoOccurrence,
+  record:
+    | Skill
+    | Resource
+    | Capability
+    | EvidenceAttachment
+    | Todo
+    | Activity
+    | TodoOccurrence
+    | ReminderEvent,
 ): Record<string, unknown> => JSON.parse(JSON.stringify(record)) as Record<string, unknown>;
 
 async function applyChange(database: ForgeDatabase, change: SyncChange) {
@@ -175,7 +193,9 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
               ? await database.todos.get(change.recordId)
               : change.entityType === 'activity'
                 ? await database.activities.get(change.recordId)
-                : await database.todoOccurrences.get(change.recordId);
+                : change.entityType === 'todoOccurrence'
+                  ? await database.todoOccurrences.get(change.recordId)
+                  : await database.reminderEvents.get(change.recordId);
   if (existing && Date.parse(existing.updatedAt) > Date.parse(change.updatedAt)) return;
   if (change.deleted) {
     if (change.entityType === 'skill') await database.skills.delete(change.recordId);
@@ -185,7 +205,9 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
     else if (change.entityType === 'attachment') await database.attachments.delete(change.recordId);
     else if (change.entityType === 'todo') await database.todos.delete(change.recordId);
     else if (change.entityType === 'activity') await database.activities.delete(change.recordId);
-    else await database.todoOccurrences.delete(change.recordId);
+    else if (change.entityType === 'todoOccurrence')
+      await database.todoOccurrences.delete(change.recordId);
+    else await database.reminderEvents.delete(change.recordId);
     return;
   }
   if (change.entityType === 'skill' && isSkill(change.payload))
@@ -202,6 +224,8 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
     await database.activities.put(change.payload);
   else if (change.entityType === 'todoOccurrence' && isTodoOccurrence(change.payload))
     await database.todoOccurrences.put(change.payload);
+  else if (change.entityType === 'reminderEvent' && isReminderEvent(change.payload))
+    await database.reminderEvents.put(change.payload);
   else throw new Error(`The server returned an invalid ${change.entityType} record.`);
 }
 
@@ -220,16 +244,25 @@ async function performSync(
     'content-type': 'application/json',
   };
   try {
-    const [skills, resources, capabilities, attachments, todos, activities, todoOccurrences] =
-      await Promise.all([
-        database.skills.toArray(),
-        database.resources.toArray(),
-        database.capabilities.toArray(),
-        database.attachments.toArray(),
-        database.todos.toArray(),
-        database.activities.toArray(),
-        database.todoOccurrences.toArray(),
-      ]);
+    const [
+      skills,
+      resources,
+      capabilities,
+      attachments,
+      todos,
+      activities,
+      todoOccurrences,
+      reminderEvents,
+    ] = await Promise.all([
+      database.skills.toArray(),
+      database.resources.toArray(),
+      database.capabilities.toArray(),
+      database.attachments.toArray(),
+      database.todos.toArray(),
+      database.activities.toArray(),
+      database.todoOccurrences.toArray(),
+      database.reminderEvents.toArray(),
+    ]);
     const changes = [
       ...skills.map((record) => ({ entityType: 'skill' as const, record })),
       ...resources.map((record) => ({ entityType: 'resource' as const, record })),
@@ -238,6 +271,7 @@ async function performSync(
       ...todos.map((record) => ({ entityType: 'todo' as const, record })),
       ...activities.map((record) => ({ entityType: 'activity' as const, record })),
       ...todoOccurrences.map((record) => ({ entityType: 'todoOccurrence' as const, record })),
+      ...reminderEvents.map((record) => ({ entityType: 'reminderEvent' as const, record })),
     ].map(({ entityType, record }) => ({
       entityType,
       recordId: record.id,
@@ -295,6 +329,7 @@ async function performSync(
         database.todos,
         database.activities,
         database.todoOccurrences,
+        database.reminderEvents,
         database.syncSettings,
       ],
       async () => {
@@ -350,16 +385,25 @@ export function startAutomaticSync(
   };
 
   const records = liveQuery(async () => {
-    const [skills, resources, capabilities, attachments, todos, activities, todoOccurrences] =
-      await Promise.all([
-        database.skills.toArray(),
-        database.resources.toArray(),
-        database.capabilities.toArray(),
-        database.attachments.toArray(),
-        database.todos.toArray(),
-        database.activities.toArray(),
-        database.todoOccurrences.toArray(),
-      ]);
+    const [
+      skills,
+      resources,
+      capabilities,
+      attachments,
+      todos,
+      activities,
+      todoOccurrences,
+      reminderEvents,
+    ] = await Promise.all([
+      database.skills.toArray(),
+      database.resources.toArray(),
+      database.capabilities.toArray(),
+      database.attachments.toArray(),
+      database.todos.toArray(),
+      database.activities.toArray(),
+      database.todoOccurrences.toArray(),
+      database.reminderEvents.toArray(),
+    ]);
     return [
       ...skills,
       ...resources,
@@ -368,6 +412,7 @@ export function startAutomaticSync(
       ...todos,
       ...activities,
       ...todoOccurrences,
+      ...reminderEvents,
     ]
       .map((record) => `${record.id}:${record.updatedAt}`)
       .sort()

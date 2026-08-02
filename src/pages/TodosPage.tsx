@@ -49,6 +49,9 @@ export function TodosPage() {
   const todos = useLiveQuery(() => db.todos.filter((todo) => !todo.archived).toArray(), []) ?? [];
   const occurrences =
     useLiveQuery(() => db.todoOccurrences.orderBy('completedAt').reverse().toArray(), []) ?? [];
+  const reminderEvents =
+    useLiveQuery(() => db.reminderEvents.orderBy('detectedAt').reverse().limit(20).toArray(), []) ??
+    [];
   const links = useLiveQuery(
     async () => ({
       skills: await db.skills.filter((item) => !item.archived).toArray(),
@@ -61,6 +64,7 @@ export function TodosPage() {
   const [query, setQuery] = useState('');
   const [showCompleted, setShowCompleted] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showReminderHistory, setShowReminderHistory] = useState(false);
   const [notificationsOn, setNotificationsOn] = useState(notificationsEnabled());
   const shown = orderedTodos(todos).filter(
     (todo) =>
@@ -154,6 +158,9 @@ export function TodosPage() {
                       {todo.dueAt ? ` · Due ${formatDate(todo.dueAt)}` : ''}
                       {todo.estimatedMinutes ? ` · ${todo.estimatedMinutes} min` : ''}
                       {todo.recurrence ? ` · ${recurrenceText(todo)}` : ''}
+                      {todo.snoozedUntil && Date.parse(todo.snoozedUntil) > Date.now()
+                        ? ` · Snoozed until ${new Date(todo.snoozedUntil).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                        : ''}
                     </p>
                   </div>
                   <div className="actions vertical">
@@ -202,6 +209,38 @@ export function TodosPage() {
           )}
         </Card>
       )}
+      {reminderEvents.length > 0 && (
+        <Card>
+          <div className="row">
+            <div>
+              <h2>Reminder history</h2>
+              <p className="muted">
+                Forge retains when reminders were detected and how you handled them.
+              </p>
+            </div>
+            <button className="secondary" onClick={() => setShowReminderHistory((value) => !value)}>
+              {showReminderHistory ? 'Hide history' : `Show ${reminderEvents.length}`}
+            </button>
+          </div>
+          {showReminderHistory && (
+            <div className="history-list">
+              {reminderEvents.map((item) => (
+                <div key={item.id}>
+                  <strong>{item.title}</strong>
+                  <span>{new Date(item.detectedAt).toLocaleString()}</span>
+                  <small>
+                    {item.action ?? 'Awaiting action'}
+                    {item.snoozedUntil
+                      ? ` until ${new Date(item.snoozedUntil).toLocaleString()}`
+                      : ''}{' '}
+                    · Why: {item.purpose}
+                  </small>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
       {edit && (
         <Modal title={edit.title ? 'Edit todo' : 'Add todo'} onClose={() => setEdit(null)}>
           <form
@@ -214,6 +253,7 @@ export function TodosPage() {
               await db.todos.put({
                 ...edit,
                 updatedAt: now(),
+                snoozedUntil: undefined,
                 completedAt: edit.status === 'Completed' ? (edit.completedAt ?? now()) : undefined,
               });
               setEdit(null);

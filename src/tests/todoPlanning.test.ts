@@ -32,6 +32,18 @@ describe('todo planning', () => {
     ).toBe('Upcoming');
     expect(todoTiming(todo(), at)).toBe('Unscheduled');
     expect(todoTiming(todo({ status: 'Completed' }), at)).toBe('Completed');
+    expect(
+      todoTiming(
+        todo({ dueAt: '2026-08-02T11:00:00.000Z', snoozedUntil: '2026-08-02T12:10:00.000Z' }),
+        at,
+      ),
+    ).toBe('Upcoming');
+    expect(
+      todoTiming(
+        todo({ dueAt: '2026-08-02T11:00:00.000Z', snoozedUntil: '2026-08-02T11:59:00.000Z' }),
+        at,
+      ),
+    ).toBe('Overdue');
   });
 
   it('orders urgent reminders before lower-priority upcoming work and explains why', () => {

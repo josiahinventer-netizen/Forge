@@ -225,6 +225,7 @@ const defaults: Record<SyncEntityType, Record<string, unknown>> = {
     linkedTodoIds: [],
   },
   todoOccurrence: {},
+  reminderEvent: {},
 };
 
 const payload = (record: ArchiveRecord | null) => record?.payload ?? null;
@@ -272,6 +273,9 @@ export function createDriveArchive(
       todoOccurrences: live
         .filter((record) => record.entityType === 'todoOccurrence')
         .map((record) => record.payload),
+      reminderEvents: live
+        .filter((record) => record.entityType === 'reminderEvent')
+        .map((record) => record.payload),
     },
     deletedRecords: records
       .filter((record) => record.deleted)
@@ -286,6 +290,7 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
   const todos = archive.records.todos;
   const activities = archive.records.activities;
   const todoOccurrences = archive.records.todoOccurrences;
+  const reminderEvents = archive.records.reminderEvents;
   return {
     'Forge Skills.csv': csv(
       [
@@ -433,6 +438,32 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         item?.dueAt,
         item?.completedAt,
         item?.completionNotes,
+      ]),
+    ),
+    'Forge Reminder History.csv': csv(
+      [
+        'id',
+        'todoId',
+        'title',
+        'purpose',
+        'scheduledFor',
+        'dueAt',
+        'detectedAt',
+        'acknowledgedAt',
+        'action',
+        'snoozedUntil',
+      ],
+      reminderEvents.map((item) => [
+        item?.id,
+        item?.todoId,
+        item?.title,
+        item?.purpose,
+        item?.scheduledFor,
+        item?.dueAt,
+        item?.detectedAt,
+        item?.acknowledgedAt,
+        item?.action,
+        item?.snoozedUntil,
       ]),
     ),
   };

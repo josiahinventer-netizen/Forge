@@ -6,6 +6,7 @@ export const SYNC_ENTITY_TYPES = [
   'todo',
   'activity',
   'todoOccurrence',
+  'reminderEvent',
 ] as const;
 export type SyncEntityType = (typeof SYNC_ENTITY_TYPES)[number];
 

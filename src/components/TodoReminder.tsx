@@ -4,6 +4,13 @@ import { Link } from 'react-router-dom';
 import { db } from '../database/db';
 import { orderedTodos, todoReminderText, todoTiming } from '../services/todoPlanning';
 import { showTodoNotification } from '../services/notifications';
+import {
+  acknowledgeReminder,
+  ensureReminderEvent,
+  reminderOccurrenceKey,
+  snoozeReminder,
+} from '../services/reminderEvents';
+import { completeTodo } from '../services/todoOperations';
 
 export function TodoReminder() {
   const [clock, setClock] = useState(Date.now());
@@ -19,16 +26,55 @@ export function TodoReminder() {
   const due = orderedTodos(todos, new Date(clock)).find((todo) =>
     ['Overdue', 'Reminder due'].includes(todoTiming(todo, new Date(clock))),
   );
+  const events =
+    useLiveQuery(() => db.reminderEvents.filter((event) => !event.archived).toArray(), []) ?? [];
+  const occurrenceKey = due ? reminderOccurrenceKey(due) : undefined;
+  const event = events.find((item) => item.occurrenceKey === occurrenceKey);
+  const visible = due && !event?.acknowledgedAt ? due : undefined;
   useEffect(() => {
-    if (!due) return;
-    const key = `forge-notified-${due.id}-${due.scheduledFor ?? due.dueAt ?? due.updatedAt}`;
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, 'true');
-    void showTodoNotification(due);
-  }, [due]);
-  return due ? (
-    <Link to="/todos" className="todo-reminder" role="status">
-      <strong>{todoTiming(due, new Date(clock))}:</strong> {todoReminderText(due)}
-    </Link>
+    if (!visible || !occurrenceKey) return;
+    void ensureReminderEvent(visible).then((saved) => {
+      if (saved.acknowledgedAt) return;
+      const key = `forge-notified-${occurrenceKey}`;
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, new Date().toISOString());
+      void showTodoNotification(visible);
+    });
+  }, [visible, occurrenceKey]);
+  return visible ? (
+    <section className="todo-reminder" role="alert">
+      <div>
+        <strong>{todoTiming(visible, new Date(clock))}:</strong> {todoReminderText(visible)}{' '}
+        <Link to="/todos">Open todos</Link>
+      </div>
+      <div className="actions">
+        <button
+          className="secondary"
+          onClick={async () => {
+            const saved = event ?? (await ensureReminderEvent(visible));
+            await snoozeReminder(visible, saved.id, 10);
+          }}
+        >
+          Snooze 10 min
+        </button>
+        <button
+          className="secondary"
+          onClick={async () => {
+            const saved = event ?? (await ensureReminderEvent(visible));
+            await acknowledgeReminder(saved.id, 'Acknowledged');
+          }}
+        >
+          Acknowledge
+        </button>
+        <button
+          onClick={async () => {
+            const saved = event ?? (await ensureReminderEvent(visible));
+            await completeTodo(visible.id, db, saved.id);
+          }}
+        >
+          Complete
+        </button>
+      </div>
+    </section>
   ) : null;
 }

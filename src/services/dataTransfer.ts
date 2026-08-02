@@ -10,6 +10,7 @@ import type {
   Skill,
   Todo,
   TodoOccurrence,
+  ReminderEvent,
 } from '../types/models';
 
 declare const __APP_VERSION__: string;
@@ -144,7 +145,25 @@ export function isTodo(value: unknown): value is Todo {
         ['Daily', 'Weekly', 'Monthly'].includes(String(value.recurrence.frequency)) &&
         typeof value.recurrence.interval === 'number' &&
         Number.isInteger(value.recurrence.interval) &&
-        value.recurrence.interval >= 1))
+        value.recurrence.interval >= 1)) &&
+    (value.snoozedUntil === undefined || isDate(value.snoozedUntil))
+  );
+}
+
+export function isReminderEvent(value: unknown): value is ReminderEvent {
+  if (!isRecord(value) || !hasBaseRecord(value)) return false;
+  return (
+    typeof value.todoId === 'string' &&
+    typeof value.occurrenceKey === 'string' &&
+    typeof value.title === 'string' &&
+    typeof value.purpose === 'string' &&
+    (value.scheduledFor === undefined || isDate(value.scheduledFor)) &&
+    (value.dueAt === undefined || isDate(value.dueAt)) &&
+    isDate(value.detectedAt) &&
+    (value.acknowledgedAt === undefined || isDate(value.acknowledgedAt)) &&
+    (value.action === undefined ||
+      ['Acknowledged', 'Snoozed', 'Completed'].includes(String(value.action))) &&
+    (value.snoozedUntil === undefined || isDate(value.snoozedUntil))
   );
 }
 
@@ -264,6 +283,7 @@ export function validateImport(value: unknown): ImportValidationResult {
   const todos = value.records.todos ?? [];
   const activities = value.records.activities ?? [];
   const todoOccurrences = value.records.todoOccurrences ?? [];
+  const reminderEvents = value.records.reminderEvents ?? [];
   if (!Array.isArray(skills) || !skills.every(isSkill)) errors.push('Skills contain invalid data.');
   if (!Array.isArray(resources) || !resources.every(isResource))
     errors.push('Resources contain invalid data.');
@@ -276,6 +296,8 @@ export function validateImport(value: unknown): ImportValidationResult {
     errors.push('Activities contain invalid data.');
   if (!Array.isArray(todoOccurrences) || !todoOccurrences.every(isTodoOccurrence))
     errors.push('Todo occurrences contain invalid data.');
+  if (!Array.isArray(reminderEvents) || !reminderEvents.every(isReminderEvent))
+    errors.push('Reminder events contain invalid data.');
   if (errors.length) return { valid: false, errors };
 
   const bundle = value as unknown as ExportBundle;
@@ -290,6 +312,8 @@ export function validateImport(value: unknown): ImportValidationResult {
     errors.push('Activities contain duplicate IDs.');
   if (!hasUniqueIds(bundle.records.todoOccurrences ?? []))
     errors.push('Todo occurrences contain duplicate IDs.');
+  if (!hasUniqueIds(bundle.records.reminderEvents ?? []))
+    errors.push('Reminder events contain duplicate IDs.');
   return errors.length ? { valid: false, errors } : { valid: true, bundle };
 }
 
@@ -319,6 +343,7 @@ export async function importData(
       database.todos,
       database.activities,
       database.todoOccurrences,
+      database.reminderEvents,
     ],
     async () => {
       if (mode === 'replace') {
@@ -330,6 +355,7 @@ export async function importData(
           database.todos.clear(),
           database.activities.clear(),
           database.todoOccurrences.clear(),
+          database.reminderEvents.clear(),
         ]);
         await database.skills.bulkPut(bundle.records.skills);
         await database.resources.bulkPut(bundle.records.resources);
@@ -338,6 +364,7 @@ export async function importData(
         await database.todos.bulkPut(bundle.records.todos ?? []);
         await database.activities.bulkPut(bundle.records.activities ?? []);
         await database.todoOccurrences.bulkPut(bundle.records.todoOccurrences ?? []);
+        await database.reminderEvents.bulkPut(bundle.records.reminderEvents ?? []);
         return;
       }
 
@@ -365,6 +392,9 @@ export async function importData(
           bundle.records.todoOccurrences ?? [],
         ),
       );
+      await database.reminderEvents.bulkPut(
+        newerRecords(await database.reminderEvents.toArray(), bundle.records.reminderEvents ?? []),
+      );
     },
   );
   return {
@@ -387,6 +417,7 @@ export async function createExport(database: ForgeDatabase = db): Promise<Export
       todos: await database.todos.toArray(),
       activities: await database.activities.toArray(),
       todoOccurrences: await database.todoOccurrences.toArray(),
+      reminderEvents: await database.reminderEvents.toArray(),
     },
   };
 }
