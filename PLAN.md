@@ -70,7 +70,9 @@
 - [x] Bounded phone camera and serial-label evidence capture
 - [x] Independently synchronized, hash-deduplicated attachment records
 - [x] Google Drive evidence-file mirroring for ChatGPT access
-- [ ] Evidence history with multiple attributed sources
+- [x] Reusable typed photo evidence with source notes and verification status for resources, skills, and activities
+- [x] Per-record hash deduplication, galleries, and confirmed evidence archiving
+- [ ] Non-image evidence history with multiple attributed document sources
 - [ ] Explainable suggested capability connections
 
 ## Stage 6 — Purpose-aware todos (foundation complete)

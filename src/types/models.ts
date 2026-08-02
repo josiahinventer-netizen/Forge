@@ -47,7 +47,7 @@ export interface Resource extends BaseRecord {
   photoDataUrls?: string[];
 }
 
-export type EvidenceOwnerType = 'resource' | 'skill' | 'capability';
+export type EvidenceOwnerType = 'resource' | 'skill' | 'capability' | 'activity';
 export type EvidenceKind =
   'Item photo' | 'Serial label' | 'Receipt' | 'Condition' | 'Project result' | 'Other';
 

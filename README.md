@@ -10,7 +10,7 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Separate knowledge and practical skill levels
 - Resource creation, editing, viewing, search, quantity/location tracking, and archiving
 - Resource intelligence for durable assets and consumables, including manufacturer, model, serial number, lifecycle, maintenance, value, verification status, and evidence notes
-- Phone camera/file evidence for resources, resized before storage, deduplicated by SHA-256, synchronized as bounded attachment records, and mirrored into Google Drive for ChatGPT
+- Phone camera/file evidence for resources, skills, and activities, resized before storage, deduplicated per record by SHA-256, synchronized as bounded attachment records, and mirrored into Google Drive for ChatGPT
 - Purpose-aware todos with priorities, scheduling, due times, duration estimates, reminder lead times, linked Forge records, completion notes, and in-app overdue/reminder banners
 - Daily, weekly, and monthly recurring todos that advance after completion while preserving occurrence history
 - Opt-in system notifications and browser speech dictation for fast todo capture
@@ -22,7 +22,7 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Live Available, Partially available, or Blocked calculations
 - Structured and plain-language missing requirements with a recommended next step
 - Dashboard capability counts derived from current records
-- Versioned Dexie schema with tested migrations through schema version 9
+- Versioned Dexie schema with tested migrations through schema version 10
 - JSON export containing app/schema metadata plus active and archived records
 - Validated JSON import with conflict-safe merge and explicitly confirmed replacement
 - PWA manifest, service worker, application-shell caching, and offline indicator
@@ -197,4 +197,4 @@ Imports are parsed and fully validated before any IndexedDB write. This remains 
 - `src/tests` — database, migration, and export tests
 
 Current app version: **1.0.0**  
-Current database schema version: **9**
+Current database schema version: **10**

@@ -97,7 +97,7 @@ export function isResource(value: unknown): value is Resource {
 export function isAttachment(value: unknown): value is EvidenceAttachment {
   if (!isRecord(value) || !hasBaseRecord(value)) return false;
   return (
-    ['resource', 'skill', 'capability'].includes(String(value.ownerType)) &&
+    ['resource', 'skill', 'capability', 'activity'].includes(String(value.ownerType)) &&
     typeof value.ownerId === 'string' &&
     value.ownerId.length > 0 &&
     ['Item photo', 'Serial label', 'Receipt', 'Condition', 'Project result', 'Other'].includes(

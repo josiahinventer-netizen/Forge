@@ -375,6 +375,36 @@ form > button:last-child {
   font-size: 0.8rem;
   margin-top: 0.3rem;
 }
+.evidence-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+.evidence-gallery figure {
+  margin: 0;
+}
+.evidence-gallery img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+}
+.evidence-gallery figcaption {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.evidence-gallery figcaption strong {
+  color: var(--text);
+}
+.evidence-gallery .subtle {
+  padding: 0.4rem 0.55rem;
+  font-size: 0.75rem;
+}
 .todo-reminder {
   display: block;
   margin: 0 0 1rem;
