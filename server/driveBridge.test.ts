@@ -93,6 +93,16 @@ describe('Drive inbox', () => {
             practicalLevel: 0,
           },
         },
+        {
+          operation: 'save',
+          entityType: 'todo',
+          record: {
+            id: 'todo-practice',
+            title: 'Practice welding',
+            purpose: 'Build practical skill',
+            priority: 'High',
+          },
+        },
       ],
     };
     writeFileSync(join(directory, 'Inbox', 'forge-request-welding.json'), JSON.stringify(request));
@@ -106,6 +116,9 @@ describe('Drive inbox', () => {
       JSON.parse(readFileSync(join(directory, 'Forge Archive.json'), 'utf8')).records.skills,
     ).toHaveLength(1);
     expect(store.driveInboxReceipt(account.id, 'request-1')?.status).toBe('processed');
+    expect(store.archiveRecord(account.id, 'todo', 'todo-practice')?.payload?.purpose).toBe(
+      'Build practical skill',
+    );
 
     writeFileSync(
       join(directory, 'Inbox', 'forge-request-duplicate.json'),

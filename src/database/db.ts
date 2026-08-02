@@ -5,9 +5,10 @@ import type {
   Resource,
   Skill,
   SyncSettings,
+  Todo,
 } from '../types/models';
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
@@ -15,6 +16,7 @@ export class ForgeDatabase extends Dexie {
   capabilities!: EntityTable<Capability, 'id'>;
   syncSettings!: EntityTable<SyncSettings, 'id'>;
   attachments!: EntityTable<EvidenceAttachment, 'id'>;
+  todos!: EntityTable<Todo, 'id'>;
 
   constructor(name = 'forge') {
     super(name);
@@ -108,6 +110,17 @@ export class ForgeDatabase extends Dexie {
         'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
       capabilities: 'id, name, category, archived, updatedAt, *tags',
       attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+      syncSettings: 'id',
+    });
+
+    // V7 adds purpose-aware scheduled todos without changing existing records.
+    this.version(7).stores({
+      skills: 'id, name, category, archived, updatedAt, *tags',
+      resources:
+        'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
+      capabilities: 'id, name, category, archived, updatedAt, *tags',
+      attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+      todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
       syncSettings: 'id',
     });
   }

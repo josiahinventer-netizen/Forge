@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { TodoReminder } from './TodoReminder';
 
 const links: Array<[string, string, string]> = [
   ['/', '▦', 'Dashboard'],
@@ -8,6 +9,7 @@ const links: Array<[string, string, string]> = [
   ['/capabilities', '⚒', 'Capabilities'],
   ['/settings', '⚙', 'Data'],
 ];
+links.splice(4, 0, ['/todos', '✓', 'Todos']);
 
 export function Shell() {
   const [online, setOnline] = useState(navigator.onLine);
@@ -46,6 +48,7 @@ export function Shell() {
         </div>
       </aside>
       <div className="content">
+        <TodoReminder />
         <Outlet />
       </div>
       <nav className="bottom-nav" aria-label="Mobile navigation">

@@ -111,5 +111,6 @@ describe('import application', () => {
     expect((await database.skills.toArray()).map((record) => record.id)).toEqual(['incoming']);
     expect(await database.resources.count()).toBe(0);
     expect(await database.capabilities.count()).toBe(0);
+    expect(await database.todos.count()).toBe(0);
   });
 });

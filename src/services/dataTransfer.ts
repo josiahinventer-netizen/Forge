@@ -7,6 +7,7 @@ import type {
   EvidenceAttachment,
   Resource,
   Skill,
+  Todo,
 } from '../types/models';
 
 declare const __APP_VERSION__: string;
@@ -117,6 +118,28 @@ export function isAttachment(value: unknown): value is EvidenceAttachment {
   );
 }
 
+export function isTodo(value: unknown): value is Todo {
+  if (!isRecord(value) || !hasBaseRecord(value)) return false;
+  return (
+    typeof value.title === 'string' &&
+    value.title.length > 0 &&
+    typeof value.description === 'string' &&
+    typeof value.purpose === 'string' &&
+    ['Open', 'In progress', 'Completed'].includes(String(value.status)) &&
+    ['Low', 'Normal', 'High', 'Urgent'].includes(String(value.priority)) &&
+    (value.scheduledFor === undefined || isDate(value.scheduledFor)) &&
+    (value.dueAt === undefined || isDate(value.dueAt)) &&
+    (value.estimatedMinutes === undefined || isFiniteNonnegative(value.estimatedMinutes)) &&
+    (value.reminderMinutesBefore === undefined ||
+      isFiniteNonnegative(value.reminderMinutesBefore)) &&
+    isStringArray(value.linkedSkillIds) &&
+    isStringArray(value.linkedResourceIds) &&
+    isStringArray(value.linkedCapabilityIds) &&
+    typeof value.completionNotes === 'string' &&
+    (value.completedAt === undefined || isDate(value.completedAt))
+  );
+}
+
 function isSkillRequirement(value: unknown): value is CapabilitySkillRequirement {
   return (
     isRecord(value) &&
@@ -177,6 +200,7 @@ export function validateImport(value: unknown): ImportValidationResult {
   const resources = value.records.resources;
   const capabilities = value.records.capabilities;
   const attachments = value.records.attachments ?? [];
+  const todos = value.records.todos ?? [];
   if (!Array.isArray(skills) || !skills.every(isSkill)) errors.push('Skills contain invalid data.');
   if (!Array.isArray(resources) || !resources.every(isResource))
     errors.push('Resources contain invalid data.');
@@ -184,6 +208,7 @@ export function validateImport(value: unknown): ImportValidationResult {
     errors.push('Capabilities contain invalid data.');
   if (!Array.isArray(attachments) || !attachments.every(isAttachment))
     errors.push('Attachments contain invalid data.');
+  if (!Array.isArray(todos) || !todos.every(isTodo)) errors.push('Todos contain invalid data.');
   if (errors.length) return { valid: false, errors };
 
   const bundle = value as unknown as ExportBundle;
@@ -193,6 +218,7 @@ export function validateImport(value: unknown): ImportValidationResult {
     errors.push('Capabilities contain duplicate IDs.');
   if (!hasUniqueIds(bundle.records.attachments ?? []))
     errors.push('Attachments contain duplicate IDs.');
+  if (!hasUniqueIds(bundle.records.todos ?? [])) errors.push('Todos contain duplicate IDs.');
   return errors.length ? { valid: false, errors } : { valid: true, bundle };
 }
 
@@ -214,7 +240,13 @@ export async function importData(
 ): Promise<ImportResult> {
   await database.transaction(
     'rw',
-    [database.skills, database.resources, database.capabilities, database.attachments],
+    [
+      database.skills,
+      database.resources,
+      database.capabilities,
+      database.attachments,
+      database.todos,
+    ],
     async () => {
       if (mode === 'replace') {
         await Promise.all([
@@ -222,11 +254,13 @@ export async function importData(
           database.resources.clear(),
           database.capabilities.clear(),
           database.attachments.clear(),
+          database.todos.clear(),
         ]);
         await database.skills.bulkPut(bundle.records.skills);
         await database.resources.bulkPut(bundle.records.resources);
         await database.capabilities.bulkPut(bundle.records.capabilities);
         await database.attachments.bulkPut(bundle.records.attachments ?? []);
+        await database.todos.bulkPut(bundle.records.todos ?? []);
         return;
       }
 
@@ -241,6 +275,9 @@ export async function importData(
       );
       await database.attachments.bulkPut(
         newerRecords(await database.attachments.toArray(), bundle.records.attachments ?? []),
+      );
+      await database.todos.bulkPut(
+        newerRecords(await database.todos.toArray(), bundle.records.todos ?? []),
       );
     },
   );
@@ -261,6 +298,7 @@ export async function createExport(database: ForgeDatabase = db): Promise<Export
       resources: await database.resources.toArray(),
       capabilities: await database.capabilities.toArray(),
       attachments: await database.attachments.toArray(),
+      todos: await database.todos.toArray(),
     },
   };
 }

@@ -375,6 +375,50 @@ form > button:last-child {
   font-size: 0.8rem;
   margin-top: 0.3rem;
 }
+.todo-reminder {
+  display: block;
+  margin: 0 0 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--accent) 18%, var(--panel));
+  border: 1px solid var(--accent);
+  color: var(--text);
+  text-decoration: none;
+}
+.todo-overdue {
+  color: var(--danger);
+}
+.todo-reminder-due {
+  color: var(--accent);
+}
+.toolbar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.toolbar .search {
+  flex: 1;
+  margin-bottom: 0;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+}
+.link-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0.5rem 0;
+}
+.actions.vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
 .actions {
   display: flex;
   gap: 0.5rem;

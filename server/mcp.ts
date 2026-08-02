@@ -60,6 +60,8 @@ mcp.registerTool(
       capabilities: records.filter(
         (record) => record.entityType === 'capability' && !isArchived(record.payload),
       ).length,
+      todos: records.filter((record) => record.entityType === 'todo' && !isArchived(record.payload))
+        .length,
       archived: records.filter((record) => isArchived(record.payload)).length,
       aiAuditEntries: store.auditCount(forgeAccountId),
     };
@@ -76,8 +78,8 @@ mcp.registerTool(
     inputSchema: {
       query: z.string().default(''),
       entityTypes: z
-        .array(z.enum(['skill', 'resource', 'capability']))
-        .default(['skill', 'resource', 'capability']),
+        .array(z.enum(['skill', 'resource', 'capability', 'todo']))
+        .default(['skill', 'resource', 'capability', 'todo']),
       includeArchived: z.boolean().default(false),
     },
     annotations: { readOnlyHint: true, openWorldHint: false },
@@ -144,13 +146,14 @@ async function saveRecord(
   entityType: SyncEntityType,
   input: Record<string, unknown> & { id?: string; confirm: true },
   defaults: Record<string, unknown>,
+  identityField: 'name' | 'title' = 'name',
 ) {
   if (!writesEnabled) throw new Error('Forge MCP write tools are disabled.');
   const existing = input.id
     ? payloadOf(store.archiveRecord(forgeAccountId, entityType, input.id))
     : null;
-  if (!existing && typeof input.name !== 'string')
-    throw new Error('Name is required when creating.');
+  if (!existing && typeof input[identityField] !== 'string')
+    throw new Error(`${identityField === 'name' ? 'Name' : 'Title'} is required when creating.`);
   const timestamp = new Date().toISOString();
   const id = input.id ?? randomUUID();
   const { confirm: _confirmed, id: _inputId, ...changes } = input;
@@ -316,6 +319,56 @@ mcp.registerTool(
       requiredResources: [],
     });
   },
+);
+
+mcp.registerTool(
+  'forge_save_todo',
+  {
+    description:
+      'Create or update a purpose-aware Forge todo after explicit user confirmation. Include why it matters and connect known Forge record IDs when relevant.',
+    inputSchema: {
+      id: z.string().min(1).optional(),
+      title: z.string().min(1).optional(),
+      description: z.string().optional(),
+      purpose: z.string().optional(),
+      status: z.enum(['Open', 'In progress', 'Completed']).optional(),
+      priority: z.enum(['Low', 'Normal', 'High', 'Urgent']).optional(),
+      scheduledFor: z.string().datetime().optional(),
+      dueAt: z.string().datetime().optional(),
+      estimatedMinutes: z.number().min(0).optional(),
+      reminderMinutesBefore: z.number().min(0).optional(),
+      linkedSkillIds: z.array(z.string()).optional(),
+      linkedResourceIds: z.array(z.string()).optional(),
+      linkedCapabilityIds: z.array(z.string()).optional(),
+      completionNotes: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      archived: z.boolean().optional(),
+      confirm: z.literal(true),
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async (input) =>
+    saveRecord(
+      'forge_save_todo',
+      'todo',
+      input,
+      {
+        description: '',
+        purpose: '',
+        status: 'Open',
+        priority: 'Normal',
+        linkedSkillIds: [],
+        linkedResourceIds: [],
+        linkedCapabilityIds: [],
+        completionNotes: '',
+      },
+      'title',
+    ),
 );
 
 mcp.registerTool(
