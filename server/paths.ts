@@ -10,3 +10,9 @@ export const forgeDataDirectory = resolve(process.env.FORGE_DATA_DIR ?? platform
 export const forgeDatabasePath = join(forgeDataDirectory, 'forge-sync.sqlite');
 export const forgeCertificatePath = join(forgeDataDirectory, 'certs', 'forge-local.pem');
 export const forgeCertificateKeyPath = join(forgeDataDirectory, 'certs', 'forge-local-key.pem');
+export const forgeDriveDirectory = resolve(
+  process.env.FORGE_DRIVE_DIR ??
+    (process.platform === 'win32'
+      ? 'G:\\My Drive\\Forge'
+      : join(homedir(), 'Google Drive', 'Forge')),
+);

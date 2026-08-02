@@ -225,6 +225,20 @@ mcp.registerTool(
       condition: z.string().optional(),
       location: z.string().optional(),
       notes: z.string().optional(),
+      resourceClass: z
+        .enum(['Durable asset', 'Consumable', 'Software', 'Service', 'Workspace', 'Document'])
+        .optional(),
+      manufacturer: z.string().optional(),
+      model: z.string().optional(),
+      serialNumber: z.string().optional(),
+      expectedLifeMonths: z.number().min(0).optional(),
+      maintenanceIntervalDays: z.number().min(0).optional(),
+      replacementValue: z.number().min(0).optional(),
+      currency: z.string().optional(),
+      verificationStatus: z
+        .enum(['Confirmed', 'Document-supported', 'Activity-supported', 'Inferred', 'Needs review'])
+        .optional(),
+      evidenceNotes: z.string().optional(),
     },
     annotations: {
       readOnlyHint: false,
@@ -243,6 +257,14 @@ mcp.registerTool(
       condition: '',
       location: '',
       notes: '',
+      resourceClass: 'Durable asset',
+      manufacturer: '',
+      model: '',
+      serialNumber: '',
+      currency: 'USD',
+      verificationStatus: 'Confirmed',
+      evidenceNotes: '',
+      photoDataUrls: [],
     }),
 );
 

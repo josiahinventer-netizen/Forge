@@ -1,7 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { Capability, Resource, Skill, SyncSettings } from '../types/models';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
@@ -67,6 +67,32 @@ export class ForgeDatabase extends Dexie {
       capabilities: 'id, name, category, archived, updatedAt, *tags',
       syncSettings: 'id',
     });
+
+    // V5 adds explainable resource intelligence without removing legacy fields.
+    this.version(5)
+      .stores({
+        skills: 'id, name, category, archived, updatedAt, *tags',
+        resources:
+          'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
+        capabilities: 'id, name, category, archived, updatedAt, *tags',
+        syncSettings: 'id',
+      })
+      .upgrade(async (transaction) => {
+        await transaction
+          .table<Resource>('resources')
+          .toCollection()
+          .modify((resource) => {
+            resource.resourceClass ??=
+              resource.resourceType === 'Material' ? 'Consumable' : 'Durable asset';
+            resource.manufacturer ??= '';
+            resource.model ??= '';
+            resource.serialNumber ??= '';
+            resource.currency ??= 'USD';
+            resource.verificationStatus ??= 'Confirmed';
+            resource.evidenceNotes ??= '';
+            resource.photoDataUrls ??= [];
+          });
+      });
   }
 }
 

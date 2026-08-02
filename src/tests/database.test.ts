@@ -160,7 +160,11 @@ describe('ForgeDatabase', () => {
     expect(skill?.tags).toEqual([]);
     expect(skill?.archived).toBe(false);
     expect(skill?.confidence).toBe(50);
-    expect((await migrated.resources.get('legacy-resource'))?.name).toBe('Legacy tool');
+    const resource = await migrated.resources.get('legacy-resource');
+    expect(resource?.name).toBe('Legacy tool');
+    expect(resource?.resourceClass).toBe('Durable asset');
+    expect(resource?.verificationStatus).toBe('Confirmed');
+    expect(resource?.photoDataUrls).toEqual([]);
     expect(migrated.tables.map((table) => table.name).sort()).toEqual([
       'capabilities',
       'resources',

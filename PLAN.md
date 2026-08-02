@@ -49,6 +49,17 @@
 4. Onboarding, themes, and safe local-data clearing
 5. Broader offline, accessibility, and device testing
 
+## Stage 5 — Resource intelligence (in progress)
+
+- [x] Typed asset/consumable classification and verification status
+- [x] Manufacturer, model, serial number, lifecycle, maintenance, and value metadata
+- [x] Dexie schema 5 migration preserving existing resources
+- [x] Drive inbox and local MCP support for richer resource metadata
+- [x] Resource editing interface for identification and lifecycle fields
+- [ ] Bounded photo and serial-label evidence capture
+- [ ] Evidence history with multiple attributed sources
+- [ ] Explainable suggested capability connections
+
 ## Stage 4 — User-owned sync server foundation (in progress)
 
 - [x] Free local SQLite storage under an ignored `data/` directory
@@ -70,6 +81,9 @@
 - [ ] Conflict-history review and manual resolution UI
 - [ ] Encrypted automatic local backups
 - [x] Permission-scoped local MCP read/write tools and account-isolated AI audit log
-- [ ] Pair ChatGPT desktop MCP access with ChatGPT Remote on Android
+- [x] Versioned Google Drive archive snapshots with Excel-compatible CSV views
+- [x] Validated, idempotent Google Drive inbox for confirmed ChatGPT save requests
+- [x] Automatic Drive bridge polling while the local HTTPS sync server runs
+- [ ] Retention controls and encryption for long-term cloud backup history
 
 The data layer uses stable IDs and isolated services so future synchronization can be added without replacing feature UI. Capability status is derived rather than stored. Later-stage models and routes are intentionally absent until their implementation stage begins.

@@ -156,6 +156,21 @@ export class ForgeSyncStore {
         PRAGMA user_version = 3;
       `);
     }
+    if (version < 4) {
+      this.database.exec(`
+        CREATE TABLE drive_inbox_receipts (
+          request_id TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          source_name TEXT NOT NULL,
+          status TEXT NOT NULL,
+          result_json TEXT NOT NULL,
+          processed_at TEXT NOT NULL
+        );
+        CREATE INDEX drive_inbox_receipts_account_processed
+          ON drive_inbox_receipts(account_id, processed_at);
+        PRAGMA user_version = 4;
+      `);
+    }
   }
 
   async createAccount(
@@ -303,6 +318,46 @@ export class ForgeSyncStore {
         'SELECT id, tool_name AS toolName, operation, entity_type AS entityType, record_id AS recordId, created_at AS createdAt FROM ai_audit_log WHERE account_id = ? ORDER BY id DESC LIMIT ?',
       )
       .all(accountId, Math.min(Math.max(limit, 1), 100)) as Array<Record<string, unknown>>;
+  }
+
+  driveInboxReceipt(accountId: string, requestId: string): Record<string, unknown> | null {
+    const row = this.database
+      .prepare(
+        'SELECT request_id AS requestId, source_name AS sourceName, status, result_json AS resultJson, processed_at AS processedAt FROM drive_inbox_receipts WHERE account_id = ? AND request_id = ?',
+      )
+      .get(accountId, requestId) as
+      | {
+          requestId: string;
+          sourceName: string;
+          status: string;
+          resultJson: string;
+          processedAt: string;
+        }
+      | undefined;
+    return row
+      ? { ...row, result: JSON.parse(row.resultJson) as unknown, resultJson: undefined }
+      : null;
+  }
+
+  recordDriveInboxReceipt(
+    accountId: string,
+    requestId: string,
+    sourceName: string,
+    status: 'processed' | 'rejected',
+    result: unknown,
+  ) {
+    this.database
+      .prepare(
+        'INSERT INTO drive_inbox_receipts (request_id, account_id, source_name, status, result_json, processed_at) VALUES (?, ?, ?, ?, ?, ?)',
+      )
+      .run(
+        requestId,
+        accountId,
+        sourceName,
+        status,
+        JSON.stringify(result),
+        new Date().toISOString(),
+      );
   }
 
   push(accountId: string, changes: SyncChangeInput[]): PushResult {
