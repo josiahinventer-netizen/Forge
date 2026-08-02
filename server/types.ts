@@ -16,6 +16,7 @@ export interface SyncChange extends SyncChangeInput {
 export interface PushResult {
   accepted: number;
   ignored: number;
+  conflictsPreserved: number;
   cursor: number;
 }
 

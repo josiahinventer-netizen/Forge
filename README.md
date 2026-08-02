@@ -54,6 +54,8 @@ The server creates `%LOCALAPPDATA%\Forge\forge-sync.sqlite` on Windows, outside 
 - Scrypt-hashed passwords and hashed 30-day device sessions
 - Incremental skill, resource, and capability changes
 - Cursor-based downloads, stale-write protection, and deletion tombstones
+- Authenticated change notifications for near-real-time synchronization between open devices
+- Preserved stale or same-time conflicting versions in the local `sync_conflicts` archive
 - A strict GitHub Pages origin allowlist
 
 No personal records are stored on GitHub or a third-party data service. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge asks browsers not to save or autofill the local-account password; browser password managers remain separately controlled by the user. Forge still needs recovery codes, encrypted automatic backups, and a permission-scoped chat API. Do not expose port `8787` through a router or firewall.
@@ -104,7 +106,9 @@ All records are stored locally using Dexie and IndexedDB. Use **Data → Export 
 - All resource records
 - All capability records
 
-When a device is connected under **Data â†’ Computer synchronization**, Forge synchronizes with the user-owned computer at startup, when connectivity returns, every 30 seconds while open, and on demand. Passwords are not saved on the device. Exported and imported files are never sent automatically.
+When a device is connected under **Data â†’ Computer synchronization**, Forge observes local record changes and synchronizes them automatically after a short debounce. The computer maintains an authenticated waiting connection that wakes other open Forge devices when changes arrive. Forge also synchronizes at startup, when connectivity returns, and every 30 seconds as a fallback. If the browser suspends or closes the PWA, queued record state converges automatically on its next launch. Passwords are not saved on the device. Exported and imported files are never sent automatically.
+
+Forge normally resolves the same record using its newest `updatedAt` value. If an older or same-time-but-different version reaches the computer, the active record remains unchanged and the rejected version is retained in SQLite's `sync_conflicts` table. A conflict-review interface is still planned; this preservation prevents the discarded version from being silently lost in the meantime.
 
 ### Move data between phone and computer
 

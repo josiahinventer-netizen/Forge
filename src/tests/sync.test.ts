@@ -77,16 +77,18 @@ describe('device synchronization', () => {
       username: 'josiah',
       sessionToken: 'token',
       sessionExpiresAt: '2099-01-01T00:00:00.000Z',
-      cursor: 0,
+      cursor: 5,
     });
     const fetcher = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse({ accepted: 1, ignored: 0, cursor: 1 }))
+      .mockResolvedValueOnce(
+        jsonResponse({ accepted: 0, ignored: 1, conflictsPreserved: 1, cursor: 6 }),
+      )
       .mockResolvedValueOnce(
         jsonResponse({
           changes: [
             {
-              revision: 1,
+              revision: 6,
               entityType: 'skill',
               recordId: newer.id,
               updatedAt: newer.updatedAt,
@@ -94,7 +96,7 @@ describe('device synchronization', () => {
               payload: newer,
             },
           ],
-          cursor: 1,
+          cursor: 6,
         }),
       );
 
@@ -102,7 +104,8 @@ describe('device synchronization', () => {
 
     expect(result).toEqual({ pushed: 1, pulled: 1 });
     expect((await database.skills.get('carpentry'))?.practicalLevel).toBe(3);
-    expect((await database.syncSettings.get('primary'))?.cursor).toBe(1);
+    expect((await database.syncSettings.get('primary'))?.cursor).toBe(6);
+    expect(fetcher.mock.calls[1]?.[0]).toBe('https://computer.local:8787/api/sync/pull?cursor=0');
     const pushedBody = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
       changes: Array<{ recordId: string }>;
     };

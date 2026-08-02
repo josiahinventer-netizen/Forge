@@ -24,6 +24,8 @@ interface AccountRow {
 
 interface ExistingRecordRow {
   updated_at: string;
+  deleted: number;
+  payload: string | null;
 }
 
 interface ChangeRow {
@@ -111,6 +113,24 @@ export class ForgeSyncStore {
         PRAGMA user_version = 1;
       `);
     }
+    if (version < 2) {
+      this.database.exec(`
+        CREATE TABLE sync_conflicts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          entity_type TEXT NOT NULL,
+          record_id TEXT NOT NULL,
+          incoming_updated_at TEXT NOT NULL,
+          incoming_deleted INTEGER NOT NULL,
+          incoming_payload TEXT,
+          reason TEXT NOT NULL,
+          recorded_at TEXT NOT NULL
+        );
+        CREATE INDEX sync_conflicts_account_record
+          ON sync_conflicts(account_id, entity_type, record_id);
+        PRAGMA user_version = 2;
+      `);
+    }
   }
 
   async createAccount(
@@ -183,7 +203,10 @@ export class ForgeSyncStore {
 
   push(accountId: string, changes: SyncChangeInput[]): PushResult {
     const existingStatement = this.database.prepare(
-      'SELECT updated_at FROM records WHERE account_id = ? AND entity_type = ? AND record_id = ?',
+      'SELECT updated_at, deleted, payload FROM records WHERE account_id = ? AND entity_type = ? AND record_id = ?',
+    );
+    const conflictStatement = this.database.prepare(
+      'INSERT INTO sync_conflicts (account_id, entity_type, record_id, incoming_updated_at, incoming_deleted, incoming_payload, reason, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     );
     const logStatement = this.database.prepare(
       'INSERT INTO change_log (account_id, entity_type, record_id, updated_at, deleted, payload) VALUES (?, ?, ?, ?, ?, ?)',
@@ -199,15 +222,33 @@ export class ForgeSyncStore {
     `);
     let accepted = 0;
     let ignored = 0;
+    let conflictsPreserved = 0;
     const apply = this.database.transaction(() => {
       for (const change of changes) {
         const existing = existingStatement.get(accountId, change.entityType, change.recordId) as
           ExistingRecordRow | undefined;
+        const payload = change.payload === null ? null : JSON.stringify(change.payload);
         if (existing && Date.parse(existing.updated_at) >= Date.parse(change.updatedAt)) {
+          const sameVersion =
+            existing.updated_at === change.updatedAt &&
+            existing.deleted === (change.deleted ? 1 : 0) &&
+            existing.payload === payload;
+          if (!sameVersion) {
+            conflictStatement.run(
+              accountId,
+              change.entityType,
+              change.recordId,
+              change.updatedAt,
+              change.deleted ? 1 : 0,
+              payload,
+              existing.updated_at === change.updatedAt ? 'same timestamp' : 'stale update',
+              new Date().toISOString(),
+            );
+            conflictsPreserved += 1;
+          }
           ignored += 1;
           continue;
         }
-        const payload = change.payload === null ? null : JSON.stringify(change.payload);
         const log = logStatement.run(
           accountId,
           change.entityType,
@@ -229,7 +270,14 @@ export class ForgeSyncStore {
       }
     });
     apply();
-    return { accepted, ignored, cursor: this.currentCursor(accountId) };
+    return { accepted, ignored, conflictsPreserved, cursor: this.currentCursor(accountId) };
+  }
+
+  conflictCount(accountId: string): number {
+    const row = this.database
+      .prepare('SELECT COUNT(*) AS count FROM sync_conflicts WHERE account_id = ?')
+      .get(accountId) as { count: number };
+    return row.count;
   }
 
   pull(accountId: string, cursor: number): PullResult {
