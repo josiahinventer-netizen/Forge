@@ -349,6 +349,32 @@ form > button:last-child {
   grid-template-columns: 1fr 1fr;
   gap: 0 1rem;
 }
+.evidence-section {
+  margin: 1rem 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.evidence-grid figure {
+  margin: 0;
+}
+.evidence-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 0.65rem;
+  border: 1px solid var(--line);
+}
+.evidence-grid figcaption {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
 .actions {
   display: flex;
   gap: 0.5rem;

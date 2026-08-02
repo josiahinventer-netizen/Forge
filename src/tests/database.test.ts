@@ -21,6 +21,7 @@ describe('ForgeDatabase', () => {
 
     expect(database.verno).toBe(SCHEMA_VERSION);
     expect(database.tables.map((table) => table.name).sort()).toEqual([
+      'attachments',
       'capabilities',
       'resources',
       'skills',
@@ -64,12 +65,34 @@ describe('ForgeDatabase', () => {
 
     await database.skills.put(skill);
     await database.resources.put(resource);
+    await database.attachments.put({
+      id: 'attachment-1',
+      ownerType: 'resource',
+      ownerId: resource.id,
+      kind: 'Serial label',
+      fileName: 'serial.jpg',
+      mimeType: 'image/jpeg',
+      byteSize: 3,
+      width: 1,
+      height: 1,
+      sha256: 'a'.repeat(64),
+      dataUrl: 'data:image/jpeg;base64,YWJj',
+      verificationStatus: 'Confirmed',
+      notes: '',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    });
     await database.skills.update(skill.id, { knowledgeLevel: 3, archived: true });
 
     expect((await database.skills.get(skill.id))?.knowledgeLevel).toBe(3);
     expect(await database.skills.filter((item) => item.name.includes('carpentry')).count()).toBe(1);
     expect((await database.skills.get(skill.id))?.archived).toBe(true);
     expect((await database.resources.get(resource.id))?.location).toBe('Garage');
+    expect((await database.attachments.where('ownerId').equals(resource.id).first())?.kind).toBe(
+      'Serial label',
+    );
   });
 
   it('persists, searches, updates, and archives capability references', async () => {
@@ -166,11 +189,13 @@ describe('ForgeDatabase', () => {
     expect(resource?.verificationStatus).toBe('Confirmed');
     expect(resource?.photoDataUrls).toEqual([]);
     expect(migrated.tables.map((table) => table.name).sort()).toEqual([
+      'attachments',
       'capabilities',
       'resources',
       'skills',
       'syncSettings',
     ]);
     expect(await migrated.capabilities.count()).toBe(0);
+    expect(await migrated.attachments.count()).toBe(0);
   });
 });

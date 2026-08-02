@@ -1,9 +1,15 @@
 import { liveQuery } from 'dexie';
 import { db, type ForgeDatabase } from '../database/db';
-import type { Capability, Resource, Skill, SyncSettings } from '../types/models';
-import { isCapability, isResource, isSkill } from './dataTransfer';
+import type {
+  Capability,
+  EvidenceAttachment,
+  Resource,
+  Skill,
+  SyncSettings,
+} from '../types/models';
+import { isAttachment, isCapability, isResource, isSkill } from './dataTransfer';
 
-type EntityType = 'skill' | 'resource' | 'capability';
+type EntityType = 'skill' | 'resource' | 'capability' | 'attachment';
 
 interface SyncChange {
   revision: number;
@@ -26,6 +32,25 @@ interface PushResponse {
   cursor: number;
 }
 
+function pushBatches(changes: Omit<SyncChange, 'revision'>[]) {
+  const batches: Array<Omit<SyncChange, 'revision'>[]> = [];
+  let batch: Omit<SyncChange, 'revision'>[] = [];
+  let bytes = 0;
+  for (const change of changes) {
+    const changeBytes = new TextEncoder().encode(JSON.stringify(change)).byteLength;
+    if (changeBytes > 700_000) throw new Error('One synchronized record exceeds 700 KB.');
+    if (batch.length && bytes + changeBytes > 700_000) {
+      batches.push(batch);
+      batch = [];
+      bytes = 0;
+    }
+    batch.push(change);
+    bytes += changeBytes;
+  }
+  if (batch.length || !batches.length) batches.push(batch);
+  return batches;
+}
+
 const isSyncChange = (value: unknown): value is SyncChange => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const change = value as Record<string, unknown>;
@@ -34,7 +59,8 @@ const isSyncChange = (value: unknown): value is SyncChange => {
     Number.isSafeInteger(change.revision) &&
     (change.entityType === 'skill' ||
       change.entityType === 'resource' ||
-      change.entityType === 'capability') &&
+      change.entityType === 'capability' ||
+      change.entityType === 'attachment') &&
     typeof change.recordId === 'string' &&
     typeof change.updatedAt === 'string' &&
     !Number.isNaN(Date.parse(change.updatedAt)) &&
@@ -116,20 +142,26 @@ export async function connectDevice(
   return settings;
 }
 
-const payload = (record: Skill | Resource | Capability): Record<string, unknown> =>
-  JSON.parse(JSON.stringify(record)) as Record<string, unknown>;
+const payload = (
+  record: Skill | Resource | Capability | EvidenceAttachment,
+): Record<string, unknown> => JSON.parse(JSON.stringify(record)) as Record<string, unknown>;
 
 async function applyChange(database: ForgeDatabase, change: SyncChange) {
-  const table =
+  const existing =
     change.entityType === 'skill'
-      ? database.skills
+      ? await database.skills.get(change.recordId)
       : change.entityType === 'resource'
-        ? database.resources
-        : database.capabilities;
-  const existing = await table.get(change.recordId);
+        ? await database.resources.get(change.recordId)
+        : change.entityType === 'capability'
+          ? await database.capabilities.get(change.recordId)
+          : await database.attachments.get(change.recordId);
   if (existing && Date.parse(existing.updatedAt) > Date.parse(change.updatedAt)) return;
   if (change.deleted) {
-    await table.delete(change.recordId);
+    if (change.entityType === 'skill') await database.skills.delete(change.recordId);
+    else if (change.entityType === 'resource') await database.resources.delete(change.recordId);
+    else if (change.entityType === 'capability')
+      await database.capabilities.delete(change.recordId);
+    else await database.attachments.delete(change.recordId);
     return;
   }
   if (change.entityType === 'skill' && isSkill(change.payload))
@@ -138,6 +170,8 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
     await database.resources.put(change.payload);
   else if (change.entityType === 'capability' && isCapability(change.payload))
     await database.capabilities.put(change.payload);
+  else if (change.entityType === 'attachment' && isAttachment(change.payload))
+    await database.attachments.put(change.payload);
   else throw new Error(`The server returned an invalid ${change.entityType} record.`);
 }
 
@@ -156,15 +190,17 @@ async function performSync(
     'content-type': 'application/json',
   };
   try {
-    const [skills, resources, capabilities] = await Promise.all([
+    const [skills, resources, capabilities, attachments] = await Promise.all([
       database.skills.toArray(),
       database.resources.toArray(),
       database.capabilities.toArray(),
+      database.attachments.toArray(),
     ]);
     const changes = [
       ...skills.map((record) => ({ entityType: 'skill' as const, record })),
       ...resources.map((record) => ({ entityType: 'resource' as const, record })),
       ...capabilities.map((record) => ({ entityType: 'capability' as const, record })),
+      ...attachments.map((record) => ({ entityType: 'attachment' as const, record })),
     ].map(({ entityType, record }) => ({
       entityType,
       recordId: record.id,
@@ -172,18 +208,25 @@ async function performSync(
       deleted: false,
       payload: payload(record),
     }));
-    const pushed = (await requestJson(
-      `${settings.serverUrl}/api/sync/push`,
-      { method: 'POST', headers, body: JSON.stringify({ changes }) },
-      fetcher,
-    )) as PushResponse;
-    if (
-      !Number.isSafeInteger(pushed.accepted) ||
-      !Number.isSafeInteger(pushed.ignored) ||
-      !Number.isSafeInteger(pushed.conflictsPreserved) ||
-      !Number.isSafeInteger(pushed.cursor)
-    )
-      throw new Error('The sync server returned an invalid push result.');
+    const pushed: PushResponse = { accepted: 0, ignored: 0, conflictsPreserved: 0, cursor: 0 };
+    for (const batch of pushBatches(changes)) {
+      const result = (await requestJson(
+        `${settings.serverUrl}/api/sync/push`,
+        { method: 'POST', headers, body: JSON.stringify({ changes: batch }) },
+        fetcher,
+      )) as PushResponse;
+      if (
+        !Number.isSafeInteger(result.accepted) ||
+        !Number.isSafeInteger(result.ignored) ||
+        !Number.isSafeInteger(result.conflictsPreserved) ||
+        !Number.isSafeInteger(result.cursor)
+      )
+        throw new Error('The sync server returned an invalid push result.');
+      pushed.accepted += result.accepted;
+      pushed.ignored += result.ignored;
+      pushed.conflictsPreserved += result.conflictsPreserved;
+      pushed.cursor = Math.max(pushed.cursor, result.cursor);
+    }
 
     let pullCursor = pushed.conflictsPreserved > 0 ? 0 : settings.cursor;
     const pulledChanges: SyncChange[] = [];
@@ -207,7 +250,13 @@ async function performSync(
     }
     await database.transaction(
       'rw',
-      [database.skills, database.resources, database.capabilities, database.syncSettings],
+      [
+        database.skills,
+        database.resources,
+        database.capabilities,
+        database.attachments,
+        database.syncSettings,
+      ],
       async () => {
         for (const change of pulledChanges) await applyChange(database, change);
         await database.syncSettings.update('primary', {
@@ -261,12 +310,13 @@ export function startAutomaticSync(
   };
 
   const records = liveQuery(async () => {
-    const [skills, resources, capabilities] = await Promise.all([
+    const [skills, resources, capabilities, attachments] = await Promise.all([
       database.skills.toArray(),
       database.resources.toArray(),
       database.capabilities.toArray(),
+      database.attachments.toArray(),
     ]);
-    return [...skills, ...resources, ...capabilities]
+    return [...skills, ...resources, ...capabilities, ...attachments]
       .map((record) => `${record.id}:${record.updatedAt}`)
       .sort()
       .join('|');

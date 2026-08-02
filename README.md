@@ -10,13 +10,14 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Separate knowledge and practical skill levels
 - Resource creation, editing, viewing, search, quantity/location tracking, and archiving
 - Resource intelligence for durable assets and consumables, including manufacturer, model, serial number, lifecycle, maintenance, value, verification status, and evidence notes
+- Phone camera/file evidence for resources, resized before storage, deduplicated by SHA-256, synchronized as bounded attachment records, and mirrored into Google Drive for ChatGPT
 - Capability creation, editing, detail viewing, search, and archiving
 - Skill requirements with separate minimum knowledge and practical levels
 - Resource requirements with quantities and units
 - Live Available, Partially available, or Blocked calculations
 - Structured and plain-language missing requirements with a recommended next step
 - Dashboard capability counts derived from current records
-- Versioned Dexie schema with tested migrations through schema version 3
+- Versioned Dexie schema with tested migrations through schema version 6
 - JSON export containing app/schema metadata plus active and archived records
 - Validated JSON import with conflict-safe merge and explicitly confirmed replacement
 - PWA manifest, service worker, application-shell caching, and offline indicator
@@ -73,6 +74,7 @@ The bridge creates:
 - `CHATGPT-FORGE-INSTRUCTIONS.md` and `Forge Inbox Example.json` — instructions and a request template for ChatGPT.
 - `Inbox/` — proposed `forge-request-*.json` files awaiting validation.
 - `Processed/` and `Rejected/` — original requests plus machine-readable receipts or errors.
+- `Evidence/` — image evidence mirrored from synchronized Forge attachments using stable attachment IDs.
 
 ChatGPT must create a new request file rather than edit `Forge Archive.json`. The inbox accepts only version 1 `save` operations for skills, resources, and capabilities. It validates field types, skill levels, quantities, and linked capability requirements before writing. It has no delete operation; records can be archived with `archived: true`. Stable request IDs are stored in SQLite so retries and duplicate uploads cannot apply the same request twice. Accepted writes use the normal sync store, appear on other Forge devices through the existing synchronization protocol, and are recorded in the AI audit log.
 
@@ -131,6 +133,7 @@ All records are stored locally using Dexie and IndexedDB. Use **Data → Export 
 - All skill records
 - All resource records
 - All capability records
+- All bounded evidence attachment records, including their resized image data
 
 When a device is connected under **Data â†’ Computer synchronization**, Forge observes local record changes and synchronizes them automatically after a short debounce. The computer maintains an authenticated waiting connection that wakes other open Forge devices when changes arrive. Forge also synchronizes at startup, when connectivity returns, and every 30 seconds as a fallback. If the browser suspends or closes the PWA, queued record state converges automatically on its next launch. Passwords are not saved on the device. Exported and imported files are never sent automatically.
 
@@ -186,4 +189,4 @@ Imports are parsed and fully validated before any IndexedDB write. This remains 
 - `src/tests` — database, migration, and export tests
 
 Current app version: **1.0.0**  
-Current database schema version: **5**
+Current database schema version: **6**

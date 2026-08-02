@@ -47,6 +47,34 @@ export interface Resource extends BaseRecord {
   photoDataUrls?: string[];
 }
 
+export type EvidenceOwnerType = 'resource' | 'skill' | 'capability';
+export type EvidenceKind =
+  'Item photo' | 'Serial label' | 'Receipt' | 'Condition' | 'Project result' | 'Other';
+
+export interface EvidenceAttachment extends BaseRecord {
+  ownerType: EvidenceOwnerType;
+  ownerId: string;
+  kind: EvidenceKind;
+  fileName: string;
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  byteSize: number;
+  width: number;
+  height: number;
+  sha256: string;
+  dataUrl: string;
+  verificationStatus: VerificationStatus;
+  notes: string;
+}
+
+export const EVIDENCE_KINDS: readonly EvidenceKind[] = [
+  'Item photo',
+  'Serial label',
+  'Receipt',
+  'Condition',
+  'Project result',
+  'Other',
+];
+
 export type ResourceClass =
   'Durable asset' | 'Consumable' | 'Software' | 'Service' | 'Workspace' | 'Document';
 export type VerificationStatus =
@@ -109,6 +137,7 @@ export interface ExportBundle {
     skills: Skill[];
     resources: Resource[];
     capabilities: Capability[];
+    attachments?: EvidenceAttachment[];
   };
 }
 

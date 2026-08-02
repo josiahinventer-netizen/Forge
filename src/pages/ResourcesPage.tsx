@@ -1,8 +1,14 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, baseRecord, now } from '../database/db';
-import type { Resource } from '../types/models';
-import { RESOURCE_CLASSES, RESOURCE_TYPES, VERIFICATION_STATUSES } from '../types/models';
+import type { EvidenceKind, Resource } from '../types/models';
+import {
+  EVIDENCE_KINDS,
+  RESOURCE_CLASSES,
+  RESOURCE_TYPES,
+  VERIFICATION_STATUSES,
+} from '../types/models';
+import { prepareEvidenceImage } from '../services/imageEvidence';
 import { Card, Empty, Field, Modal, Page } from '../components/UI';
 const empty = (): Resource => ({
   ...baseRecord(),
@@ -27,7 +33,22 @@ const empty = (): Resource => ({
 export function ResourcesPage() {
   const items = useLiveQuery(() => db.resources.filter((r) => !r.archived).toArray(), []) || [];
   const [edit, setEdit] = useState<Resource | null>(null),
-    [q, setQ] = useState('');
+    [q, setQ] = useState(''),
+    [evidenceKind, setEvidenceKind] = useState<EvidenceKind>('Item photo'),
+    [photoError, setPhotoError] = useState(''),
+    [photoBusy, setPhotoBusy] = useState(false);
+  const attachments =
+    useLiveQuery(
+      () =>
+        edit
+          ? db.attachments
+              .where('ownerId')
+              .equals(edit.id)
+              .filter((item) => !item.archived)
+              .toArray()
+          : [],
+      [edit?.id],
+    ) ?? [];
   const shown = items.filter((r) =>
     (r.name + r.resourceType + r.location).toLowerCase().includes(q.toLowerCase()),
   );
@@ -263,6 +284,88 @@ export function ResourcesPage() {
                 onChange={(e) => setEdit({ ...edit, evidenceNotes: e.target.value })}
               />
             </Field>
+            {items.some((r) => r.id === edit.id) ? (
+              <section className="evidence-section">
+                <h3>Photo evidence</h3>
+                <p className="muted">
+                  Photograph the complete item, serial label, receipt, or current condition. Images
+                  are resized before synchronization.
+                </p>
+                <div className="form-grid">
+                  <Field label="Photo type">
+                    <select
+                      value={evidenceKind}
+                      onChange={(event) => setEvidenceKind(event.target.value as EvidenceKind)}
+                    >
+                      {EVIDENCE_KINDS.map((kind) => (
+                        <option key={kind}>{kind}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Take or choose photo">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      disabled={photoBusy}
+                      onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = '';
+                        if (!file) return;
+                        setPhotoBusy(true);
+                        setPhotoError('');
+                        try {
+                          const image = await prepareEvidenceImage(file);
+                          const duplicate = await db.attachments
+                            .where('sha256')
+                            .equals(image.sha256)
+                            .first();
+                          if (duplicate) throw new Error('That image is already stored in Forge.');
+                          const timestamp = now();
+                          await db.attachments.put({
+                            ...baseRecord(),
+                            ownerType: 'resource',
+                            ownerId: edit.id,
+                            kind: evidenceKind,
+                            fileName: file.name || `${evidenceKind}.jpg`,
+                            ...image,
+                            verificationStatus: 'Confirmed',
+                            notes: '',
+                            createdAt: timestamp,
+                            updatedAt: timestamp,
+                          });
+                        } catch (error) {
+                          setPhotoError(
+                            error instanceof Error ? error.message : 'Could not add photo.',
+                          );
+                        } finally {
+                          setPhotoBusy(false);
+                        }
+                      }}
+                    />
+                  </Field>
+                </div>
+                {photoError && (
+                  <p role="alert" className="error">
+                    {photoError}
+                  </p>
+                )}
+                {attachments.length > 0 && (
+                  <div className="evidence-grid">
+                    {attachments.map((attachment) => (
+                      <figure key={attachment.id}>
+                        <img src={attachment.dataUrl} alt={`${attachment.kind} for ${edit.name}`} />
+                        <figcaption>
+                          {attachment.kind} · {Math.round(attachment.byteSize / 1024)} KB
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : (
+              <p className="muted">Save this resource before adding photo evidence.</p>
+            )}
             <Field label="Location">
               <input
                 value={edit.location}
