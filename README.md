@@ -38,13 +38,15 @@ npm run preview
 
 ## Local sync server foundation
 
-Forge includes an early user-owned synchronization server. It is not connected to the PWA yet and intentionally listens only on `127.0.0.1`, so it cannot currently be reached by a phone or another computer.
+Forge includes an early user-owned synchronization server. It is not connected to the PWA yet. The default command listens only on `127.0.0.1`; the separate encrypted LAN command can be reached by trusted devices on the same local network.
 
 Start it with:
 
 ```bash
 npm run server:start
 ```
+
+After generating trusted local certificates under `data/certs`, encrypted LAN mode can be started with `npm run server:lan`. The current development certificate covers this computer at `192.168.0.187` and `DESKTOP-4712NEU`. The LAN command refuses to start if its certificate or key is missing. The public certificate authority is available locally at `data/certs/rootCA.pem` for installation on trusted devices; its private key must never leave the computer. Never forward port `8787` through the router.
 
 The server creates `data/forge-sync.sqlite`, which is ignored by Git. It provides:
 
@@ -54,7 +56,7 @@ The server creates `data/forge-sync.sqlite`, which is ignored by Git. It provide
 - Cursor-based downloads, stale-write protection, and deletion tombstones
 - A strict GitHub Pages origin allowlist
 
-No personal records are stored on GitHub or a third-party data service. Before LAN access is enabled, Forge still needs a trusted local HTTPS identity, device pairing, PWA sync queues, visible status, backups, and recovery tools. Do not expose port `8787` through a router or firewall.
+No personal records are stored on GitHub or a third-party data service. The computer now has a trusted local HTTPS identity, but the Android phone still needs to trust its public certificate authority. Forge also still needs device pairing, PWA sync queues, visible status, backups, and recovery tools. Do not expose port `8787` through a router or firewall.
 
 ## Publish as an HTTPS PWA
 

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from 'vitest';
 import { ForgeSyncStore, validateSyncChange } from './store.js';
+import { createForgeServer } from './http.js';
 
 const stores: ForgeSyncStore[] = [];
 const makeStore = () => {
@@ -36,6 +37,14 @@ describe('ForgeSyncStore accounts', () => {
       'already exists',
     );
     await expect(store.createAccount('short', 'tiny')).rejects.toThrow('at least 12 characters');
+  });
+});
+
+describe('Forge server network safety', () => {
+  it('refuses non-loopback binding without TLS', () => {
+    expect(() =>
+      createForgeServer({ databasePath: ':memory:', host: '0.0.0.0', port: 8787 }),
+    ).toThrow('refuses non-loopback access without a TLS certificate and key');
   });
 });
 

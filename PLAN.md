@@ -59,7 +59,8 @@
 - [x] Stale-write protection and deletion tombstones
 - [x] Strict account isolation and sync-store tests
 - [x] Localhost-only HTTP API with an explicit web-origin allowlist
-- [ ] Local HTTPS identity trusted by the computer and Android phone
+- [x] Local HTTPS identity generated and trusted by the computer
+- [ ] Install the local HTTPS certificate authority on the Android phone
 - [ ] One-time device pairing and recovery codes
 - [ ] PWA login and IndexedDB outbox/inbox integration
 - [ ] Background retry and visible sync status

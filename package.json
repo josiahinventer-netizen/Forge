@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "server:start": "tsx server/index.ts",
+    "server:lan": "tsx server/lan.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
