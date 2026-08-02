@@ -114,6 +114,7 @@ export function SettingsPage() {
             </>
           ) : (
             <form
+              autoComplete="off"
               onSubmit={(event) => {
                 event.preventDefault();
                 void connect(false);
@@ -134,7 +135,7 @@ export function SettingsPage() {
                 <input
                   required
                   minLength={3}
-                  autoComplete="username"
+                  autoComplete="off"
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                 />
@@ -145,7 +146,7 @@ export function SettingsPage() {
                   required
                   minLength={12}
                   type="password"
-                  autoComplete="current-password"
+                  autoComplete="off"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                 />

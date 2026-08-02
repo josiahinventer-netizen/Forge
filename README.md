@@ -56,7 +56,7 @@ The server creates `%LOCALAPPDATA%\Forge\forge-sync.sqlite` on Windows, outside 
 - Cursor-based downloads, stale-write protection, and deletion tombstones
 - A strict GitHub Pages origin allowlist
 
-No personal records are stored on GitHub or a third-party data service. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge still needs recovery codes, encrypted automatic backups, and a permission-scoped chat API. Do not expose port `8787` through a router or firewall.
+No personal records are stored on GitHub or a third-party data service. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge asks browsers not to save or autofill the local-account password; browser password managers remain separately controlled by the user. Forge still needs recovery codes, encrypted automatic backups, and a permission-scoped chat API. Do not expose port `8787` through a router or firewall.
 
 ## Publish as an HTTPS PWA
 
