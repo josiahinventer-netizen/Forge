@@ -6,10 +6,11 @@ import type {
   Resource,
   Skill,
   SyncSettings,
+  Todo,
 } from '../types/models';
-import { isAttachment, isCapability, isResource, isSkill } from './dataTransfer';
+import { isAttachment, isCapability, isResource, isSkill, isTodo } from './dataTransfer';
 
-type EntityType = 'skill' | 'resource' | 'capability' | 'attachment';
+type EntityType = 'skill' | 'resource' | 'capability' | 'attachment' | 'todo';
 
 interface SyncChange {
   revision: number;
@@ -60,7 +61,8 @@ const isSyncChange = (value: unknown): value is SyncChange => {
     (change.entityType === 'skill' ||
       change.entityType === 'resource' ||
       change.entityType === 'capability' ||
-      change.entityType === 'attachment') &&
+      change.entityType === 'attachment' ||
+      change.entityType === 'todo') &&
     typeof change.recordId === 'string' &&
     typeof change.updatedAt === 'string' &&
     !Number.isNaN(Date.parse(change.updatedAt)) &&
@@ -143,7 +145,7 @@ export async function connectDevice(
 }
 
 const payload = (
-  record: Skill | Resource | Capability | EvidenceAttachment,
+  record: Skill | Resource | Capability | EvidenceAttachment | Todo,
 ): Record<string, unknown> => JSON.parse(JSON.stringify(record)) as Record<string, unknown>;
 
 async function applyChange(database: ForgeDatabase, change: SyncChange) {
@@ -154,14 +156,17 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
         ? await database.resources.get(change.recordId)
         : change.entityType === 'capability'
           ? await database.capabilities.get(change.recordId)
-          : await database.attachments.get(change.recordId);
+          : change.entityType === 'attachment'
+            ? await database.attachments.get(change.recordId)
+            : await database.todos.get(change.recordId);
   if (existing && Date.parse(existing.updatedAt) > Date.parse(change.updatedAt)) return;
   if (change.deleted) {
     if (change.entityType === 'skill') await database.skills.delete(change.recordId);
     else if (change.entityType === 'resource') await database.resources.delete(change.recordId);
     else if (change.entityType === 'capability')
       await database.capabilities.delete(change.recordId);
-    else await database.attachments.delete(change.recordId);
+    else if (change.entityType === 'attachment') await database.attachments.delete(change.recordId);
+    else await database.todos.delete(change.recordId);
     return;
   }
   if (change.entityType === 'skill' && isSkill(change.payload))
@@ -172,6 +177,8 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
     await database.capabilities.put(change.payload);
   else if (change.entityType === 'attachment' && isAttachment(change.payload))
     await database.attachments.put(change.payload);
+  else if (change.entityType === 'todo' && isTodo(change.payload))
+    await database.todos.put(change.payload);
   else throw new Error(`The server returned an invalid ${change.entityType} record.`);
 }
 
@@ -190,17 +197,19 @@ async function performSync(
     'content-type': 'application/json',
   };
   try {
-    const [skills, resources, capabilities, attachments] = await Promise.all([
+    const [skills, resources, capabilities, attachments, todos] = await Promise.all([
       database.skills.toArray(),
       database.resources.toArray(),
       database.capabilities.toArray(),
       database.attachments.toArray(),
+      database.todos.toArray(),
     ]);
     const changes = [
       ...skills.map((record) => ({ entityType: 'skill' as const, record })),
       ...resources.map((record) => ({ entityType: 'resource' as const, record })),
       ...capabilities.map((record) => ({ entityType: 'capability' as const, record })),
       ...attachments.map((record) => ({ entityType: 'attachment' as const, record })),
+      ...todos.map((record) => ({ entityType: 'todo' as const, record })),
     ].map(({ entityType, record }) => ({
       entityType,
       recordId: record.id,
@@ -255,6 +264,7 @@ async function performSync(
         database.resources,
         database.capabilities,
         database.attachments,
+        database.todos,
         database.syncSettings,
       ],
       async () => {
@@ -310,13 +320,14 @@ export function startAutomaticSync(
   };
 
   const records = liveQuery(async () => {
-    const [skills, resources, capabilities, attachments] = await Promise.all([
+    const [skills, resources, capabilities, attachments, todos] = await Promise.all([
       database.skills.toArray(),
       database.resources.toArray(),
       database.capabilities.toArray(),
       database.attachments.toArray(),
+      database.todos.toArray(),
     ]);
-    return [...skills, ...resources, ...capabilities, ...attachments]
+    return [...skills, ...resources, ...capabilities, ...attachments, ...todos]
       .map((record) => `${record.id}:${record.updatedAt}`)
       .sort()
       .join('|');

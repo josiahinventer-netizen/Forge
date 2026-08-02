@@ -75,6 +75,22 @@ describe('JSON export', () => {
       tags: [],
       archived: false,
     });
+    await database.todos.put({
+      id: 'todo',
+      title: 'Build practice joint',
+      description: '',
+      purpose: 'Practice carpentry',
+      status: 'Open',
+      priority: 'Normal',
+      linkedSkillIds: ['active'],
+      linkedResourceIds: [],
+      linkedCapabilityIds: [],
+      completionNotes: '',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+      tags: [],
+      archived: false,
+    });
 
     const bundle = await createExport(database);
     const parsed = JSON.parse(JSON.stringify(bundle)) as typeof bundle;
@@ -87,5 +103,6 @@ describe('JSON export', () => {
     expect(parsed.records.capabilities).toHaveLength(1);
     expect(parsed.records.capabilities[0]?.requiredSkills[0]?.skillId).toBe('active');
     expect(parsed.records.attachments?.[0]?.ownerId).toBe('active');
+    expect(parsed.records.todos?.[0]?.purpose).toBe('Practice carpentry');
   });
 });

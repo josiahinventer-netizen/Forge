@@ -66,6 +66,28 @@ export interface EvidenceAttachment extends BaseRecord {
   notes: string;
 }
 
+export type TodoStatus = 'Open' | 'In progress' | 'Completed';
+export type TodoPriority = 'Low' | 'Normal' | 'High' | 'Urgent';
+
+export interface Todo extends BaseRecord {
+  title: string;
+  description: string;
+  purpose: string;
+  status: TodoStatus;
+  priority: TodoPriority;
+  scheduledFor?: string;
+  dueAt?: string;
+  estimatedMinutes?: number;
+  reminderMinutesBefore?: number;
+  linkedSkillIds: string[];
+  linkedResourceIds: string[];
+  linkedCapabilityIds: string[];
+  completionNotes: string;
+  completedAt?: string;
+}
+
+export const TODO_PRIORITIES: readonly TodoPriority[] = ['Low', 'Normal', 'High', 'Urgent'];
+
 export const EVIDENCE_KINDS: readonly EvidenceKind[] = [
   'Item photo',
   'Serial label',
@@ -138,6 +160,7 @@ export interface ExportBundle {
     resources: Resource[];
     capabilities: Capability[];
     attachments?: EvidenceAttachment[];
+    todos?: Todo[];
   };
 }
 

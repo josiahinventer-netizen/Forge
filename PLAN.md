@@ -43,7 +43,7 @@
 
 ## Later stages (not started)
 
-1. Actions, timeline, and weekly summaries
+1. Activity timeline and weekly summaries
 2. Bored Mode recommendation engine
 3. Knowledge entries and evidence-aware progression scoring
 4. Onboarding, themes, and safe local-data clearing
@@ -61,6 +61,20 @@
 - [x] Google Drive evidence-file mirroring for ChatGPT access
 - [ ] Evidence history with multiple attributed sources
 - [ ] Explainable suggested capability connections
+
+## Stage 6 — Purpose-aware todos (foundation complete)
+
+- [x] Create, edit, search, complete, and archive todos
+- [x] Required purpose field explaining why a task matters
+- [x] Priority, scheduled start, due time, duration estimate, and reminder lead time
+- [x] Links to existing skills, resources, and capabilities by stable ID
+- [x] Completion notes and completion timestamps
+- [x] Pure overdue, reminder-due, upcoming, and ordering service with tests
+- [x] Visible in-app reminder while Forge is open
+- [x] Dashboard open and overdue counts
+- [x] Dexie schema 7 migration, device sync, JSON export, Drive archive/CSV, and AI tools
+- [ ] Recurring task occurrences that retain completion history
+- [ ] Best-effort OS notifications with clear Android suspension limitations
 
 ## Stage 4 — User-owned sync server foundation (in progress)
 

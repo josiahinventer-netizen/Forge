@@ -11,18 +11,19 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Resource creation, editing, viewing, search, quantity/location tracking, and archiving
 - Resource intelligence for durable assets and consumables, including manufacturer, model, serial number, lifecycle, maintenance, value, verification status, and evidence notes
 - Phone camera/file evidence for resources, resized before storage, deduplicated by SHA-256, synchronized as bounded attachment records, and mirrored into Google Drive for ChatGPT
+- Purpose-aware todos with priorities, scheduling, due times, duration estimates, reminder lead times, linked Forge records, completion notes, and in-app overdue/reminder banners
 - Capability creation, editing, detail viewing, search, and archiving
 - Skill requirements with separate minimum knowledge and practical levels
 - Resource requirements with quantities and units
 - Live Available, Partially available, or Blocked calculations
 - Structured and plain-language missing requirements with a recommended next step
 - Dashboard capability counts derived from current records
-- Versioned Dexie schema with tested migrations through schema version 6
+- Versioned Dexie schema with tested migrations through schema version 7
 - JSON export containing app/schema metadata plus active and archived records
 - Validated JSON import with conflict-safe merge and explicitly confirmed replacement
 - PWA manifest, service worker, application-shell caching, and offline indicator
 
-Actions, Bored Mode, health tracking, civilization scoring, AI, automatic server synchronization, knowledge entries, and onboarding are not implemented. See [PLAN.md](./PLAN.md) for staged work.
+Activity history, recurring task occurrences, background OS alarms, Bored Mode, health tracking, civilization scoring, knowledge entries, and onboarding are not implemented. See [PLAN.md](./PLAN.md) for staged work. In-app todo reminders are dependable while Forge is open; browsers and Android may suspend a closed PWA, so Forge does not yet claim closed-app alarm delivery.
 
 ## Run locally
 
@@ -134,6 +135,7 @@ All records are stored locally using Dexie and IndexedDB. Use **Data → Export 
 - All resource records
 - All capability records
 - All bounded evidence attachment records, including their resized image data
+- All todo records, schedules, links, purpose, and completion information
 
 When a device is connected under **Data â†’ Computer synchronization**, Forge observes local record changes and synchronizes them automatically after a short debounce. The computer maintains an authenticated waiting connection that wakes other open Forge devices when changes arrive. Forge also synchronizes at startup, when connectivity returns, and every 30 seconds as a fallback. If the browser suspends or closes the PWA, queued record state converges automatically on its next launch. Passwords are not saved on the device. Exported and imported files are never sent automatically.
 
@@ -189,4 +191,4 @@ Imports are parsed and fully validated before any IndexedDB write. This remains 
 - `src/tests` — database, migration, and export tests
 
 Current app version: **1.0.0**  
-Current database schema version: **6**
+Current database schema version: **7**

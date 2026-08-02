@@ -83,13 +83,35 @@ const capabilityOperation = z.object({
     requiredResources: z.array(resourceRequirement).optional(),
   }),
 });
+const todoOperation = z.object({
+  operation: z.literal('save'),
+  entityType: z.literal('todo'),
+  record: z.object({
+    id: z.string().min(1).optional(),
+    description: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    archived: z.boolean().optional(),
+    title: z.string().min(1),
+    purpose: z.string().optional(),
+    status: z.enum(['Open', 'In progress', 'Completed']).optional(),
+    priority: z.enum(['Low', 'Normal', 'High', 'Urgent']).optional(),
+    scheduledFor: z.string().datetime().optional(),
+    dueAt: z.string().datetime().optional(),
+    estimatedMinutes: z.number().min(0).optional(),
+    reminderMinutesBefore: z.number().min(0).optional(),
+    linkedSkillIds: z.array(z.string()).optional(),
+    linkedResourceIds: z.array(z.string()).optional(),
+    linkedCapabilityIds: z.array(z.string()).optional(),
+    completionNotes: z.string().optional(),
+  }),
+});
 export const driveInboxRequestSchema = z.object({
   forgeInboxVersion: z.literal(DRIVE_INBOX_VERSION),
   requestId: z.string().min(1).max(100),
   createdAt: z.string().datetime(),
   summary: z.string().min(1).max(500),
   operations: z
-    .array(z.union([skillOperation, resourceOperation, capabilityOperation]))
+    .array(z.union([skillOperation, resourceOperation, capabilityOperation, todoOperation]))
     .min(1)
     .max(50),
 });
@@ -124,6 +146,16 @@ const defaults: Record<SyncEntityType, Record<string, unknown>> = {
     photoDataUrls: [],
   },
   attachment: {},
+  todo: {
+    description: '',
+    purpose: '',
+    status: 'Open',
+    priority: 'Normal',
+    linkedSkillIds: [],
+    linkedResourceIds: [],
+    linkedCapabilityIds: [],
+    completionNotes: '',
+  },
   capability: { description: '', category: 'General', requiredSkills: [], requiredResources: [] },
 };
 
@@ -165,6 +197,7 @@ export function createDriveArchive(
                 : 'jpg';
           return { ...metadata, driveFile: `Evidence/${record.recordId}.${extension}` };
         }),
+      todos: live.filter((record) => record.entityType === 'todo').map((record) => record.payload),
     },
     deletedRecords: records
       .filter((record) => record.deleted)
@@ -176,6 +209,7 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
   const skills = archive.records.skills;
   const resources = archive.records.resources;
   const capabilities = archive.records.capabilities;
+  const todos = archive.records.todos;
   return {
     'Forge Skills.csv': csv(
       [
@@ -248,6 +282,34 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         JSON.stringify(item?.requiredSkills ?? []),
         JSON.stringify(item?.requiredResources ?? []),
         Array.isArray(item?.tags) ? item.tags.join('; ') : '',
+        item?.updatedAt,
+      ]),
+    ),
+    'Forge Todos.csv': csv(
+      [
+        'id',
+        'title',
+        'status',
+        'priority',
+        'purpose',
+        'scheduledFor',
+        'dueAt',
+        'estimatedMinutes',
+        'completedAt',
+        'archived',
+        'updatedAt',
+      ],
+      todos.map((item) => [
+        item?.id,
+        item?.title,
+        item?.status,
+        item?.priority,
+        item?.purpose,
+        item?.scheduledFor,
+        item?.dueAt,
+        item?.estimatedMinutes,
+        item?.completedAt,
+        item?.archived,
         item?.updatedAt,
       ]),
     ),

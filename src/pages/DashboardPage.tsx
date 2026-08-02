@@ -6,10 +6,11 @@ import { assessCapability } from '../services/capabilityAvailability';
 
 export function DashboardPage() {
   const counts = useLiveQuery(async () => {
-    const [skills, resources, capabilities] = await Promise.all([
+    const [skills, resources, capabilities, todos] = await Promise.all([
       db.skills.toArray(),
       db.resources.toArray(),
       db.capabilities.filter((capability) => !capability.archived).toArray(),
+      db.todos.filter((todo) => !todo.archived).toArray(),
     ]);
     const [activeSkills, archivedSkills, activeResources, archivedResources] = [
       skills.filter((skill) => !skill.archived).length,
@@ -32,6 +33,10 @@ export function DashboardPage() {
       ).length,
       blockedCapabilities: assessments.filter((assessment) => assessment.status === 'Blocked')
         .length,
+      openTodos: todos.filter((todo) => todo.status !== 'Completed').length,
+      overdueTodos: todos.filter(
+        (todo) => todo.status !== 'Completed' && todo.dueAt && Date.parse(todo.dueAt) < Date.now(),
+      ).length,
     };
   }, []);
 
@@ -65,6 +70,14 @@ export function DashboardPage() {
           <b>{counts?.blockedCapabilities ?? '—'}</b>
           <span>Blocked capabilities</span>
         </Card>
+        <Card>
+          <b>{counts?.openTodos ?? '—'}</b>
+          <span>Open todos</span>
+        </Card>
+        <Card>
+          <b>{counts?.overdueTodos ?? '—'}</b>
+          <span>Overdue todos</span>
+        </Card>
       </div>
       <div className="dashboard-grid">
         <Card>
@@ -83,6 +96,9 @@ export function DashboardPage() {
             </Link>
             <Link className="button secondary" to="/capabilities">
               View capabilities
+            </Link>
+            <Link className="button secondary" to="/todos">
+              Plan a todo
             </Link>
           </div>
         </Card>
