@@ -352,8 +352,10 @@ mcp.registerTool(
       openWorldHint: false,
     },
   },
-  async (input) =>
-    saveRecord(
+  async (input) => {
+    if (!input.id && !input.purpose?.trim())
+      throw new Error('Purpose is required when creating a todo.');
+    return saveRecord(
       'forge_save_todo',
       'todo',
       input,
@@ -368,7 +370,8 @@ mcp.registerTool(
         completionNotes: '',
       },
       'title',
-    ),
+    );
+  },
 );
 
 mcp.registerTool(

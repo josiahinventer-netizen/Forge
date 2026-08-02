@@ -92,7 +92,7 @@ const todoOperation = z.object({
     tags: z.array(z.string()).optional(),
     archived: z.boolean().optional(),
     title: z.string().min(1),
-    purpose: z.string().optional(),
+    purpose: z.string().min(1),
     status: z.enum(['Open', 'In progress', 'Completed']).optional(),
     priority: z.enum(['Low', 'Normal', 'High', 'Urgent']).optional(),
     scheduledFor: z.string().datetime().optional(),
@@ -399,7 +399,7 @@ export class ForgeDriveBridge {
       mkdirSync(join(this.options.driveDirectory, folder), { recursive: true });
     atomicWrite(
       join(this.options.driveDirectory, 'CHATGPT-FORGE-INSTRUCTIONS.md'),
-      `# Forge archive instructions\n\nRead **Forge Archive.json** before changing Forge. When Josiah clearly says to add or log something in Forge, that statement authorizes one non-destructive create request: correct obvious spelling and capitalization, check the archive for duplicates, infer only conservative defaults, and immediately create one file named \`forge-request-<unique-id>.json\` in **Inbox** using **Forge Inbox Example.json** as the schema. Do not ask for a second confirmation unless the intended record type or identity is genuinely ambiguous. Preserve uncertainty in notes instead of inventing experience, quantities, condition, or proficiency. Ask before changing an existing record or archiving anything. Never edit archive files and never request deletion; archive records instead. Each request needs a new unique requestId. After writing a request, report the normalized name and fields submitted.\n`,
+      `# Forge archive instructions\n\nRead **Forge Archive.json** before changing Forge. When Josiah clearly says to add or log something in Forge, that statement authorizes one non-destructive create request: correct obvious spelling and capitalization, check the archive for duplicates, infer only conservative defaults, and immediately create one file named \`forge-request-<unique-id>.json\` in **Inbox** using **Forge Inbox Example.json** as the schema. Do not ask for a second confirmation unless the intended record type or identity is genuinely ambiguous. Preserve uncertainty in notes instead of inventing experience, quantities, condition, or proficiency. A todo requires a genuine purpose explaining why it matters; if Josiah has not provided one, ask rather than inventing it. Ask before changing an existing record or archiving anything. Never edit archive files and never request deletion; archive records instead. Each request needs a new unique requestId. After writing a request, report the normalized name and fields submitted.\n`,
     );
     atomicWrite(
       join(this.options.driveDirectory, 'Forge Inbox Example.json'),
