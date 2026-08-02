@@ -9,6 +9,8 @@ import {
   type VerificationStatus,
 } from '../types/models';
 import { Card, Empty, Field, Modal, Page, formatDate } from '../components/UI';
+import { EvidenceAttachments } from '../components/EvidenceAttachments';
+import { SpeechInput } from '../components/SpeechInput';
 
 const emptyActivity = (): Activity => ({
   ...baseRecord(),
@@ -48,6 +50,12 @@ export function ActivitiesPage() {
     }),
     [],
   ) ?? { skills: [], resources: [], capabilities: [], todos: [] };
+  const attachments =
+    useLiveQuery(
+      () =>
+        db.attachments.filter((item) => !item.archived && item.ownerType === 'activity').toArray(),
+      [],
+    ) ?? [];
   const [edit, setEdit] = useState<Activity | null>(null);
   const [query, setQuery] = useState('');
   const shown = activities.filter((item) =>
@@ -118,6 +126,12 @@ export function ActivitiesPage() {
                       <strong>Outcome:</strong> {activity.outcome}
                     </p>
                   )}
+                  {attachments.some((item) => item.ownerId === activity.id) && (
+                    <p className="evidence">
+                      Photo evidence ·{' '}
+                      {attachments.filter((item) => item.ownerId === activity.id).length}
+                    </p>
+                  )}
                 </div>
                 <button className="secondary" onClick={() => setEdit(activity)}>
                   View / edit
@@ -144,18 +158,18 @@ export function ActivitiesPage() {
             }}
           >
             <Field label="What did you do?">
-              <input
+              <SpeechInput
                 required
-                autoFocus
                 value={edit.title}
-                onChange={(event) => setEdit({ ...edit, title: event.target.value })}
+                onChange={(title) => setEdit({ ...edit, title })}
               />
             </Field>
             <Field label="Why did you do it?">
-              <textarea
+              <SpeechInput
+                multiline
                 required
                 value={edit.purpose}
-                onChange={(event) => setEdit({ ...edit, purpose: event.target.value })}
+                onChange={(purpose) => setEdit({ ...edit, purpose })}
               />
             </Field>
             <div className="form-grid">
@@ -188,9 +202,10 @@ export function ActivitiesPage() {
               />
             </Field>
             <Field label="Observable outcome">
-              <textarea
+              <SpeechInput
+                multiline
                 value={edit.outcome}
-                onChange={(event) => setEdit({ ...edit, outcome: event.target.value })}
+                onChange={(outcome) => setEdit({ ...edit, outcome })}
                 placeholder="What was built, fixed, tested, or demonstrated?"
               />
             </Field>
@@ -305,6 +320,12 @@ export function ActivitiesPage() {
                 </div>
               ))}
             </fieldset>
+            <EvidenceAttachments
+              ownerType="activity"
+              ownerId={edit.id}
+              ownerName={edit.title || 'activity'}
+              saved={activities.some((item) => item.id === edit.id)}
+            />
             <div className="actions">
               <button>Save activity</button>
               {activities.some((item) => item.id === edit.id) && (

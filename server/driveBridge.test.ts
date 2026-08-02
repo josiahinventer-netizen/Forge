@@ -42,12 +42,27 @@ describe('Drive archive', () => {
           deleted: true,
           payload: null,
         },
+        {
+          entityType: 'attachment',
+          recordId: 'activity-photo',
+          updatedAt: '2026-08-02T02:30:00.000Z',
+          deleted: false,
+          payload: {
+            id: 'activity-photo',
+            ownerType: 'activity',
+            ownerId: 'activity-1',
+            mimeType: 'image/jpeg',
+            dataUrl: 'data:image/jpeg;base64,YWJj',
+          },
+        },
       ],
       '2026-08-02T03:00:00.000Z',
     );
     expect(archive.forgeArchiveVersion).toBe(1);
     expect(archive.records.skills).toHaveLength(1);
     expect(archive.records.skills[0]?.archived).toBe(true);
+    expect(archive.records.attachments[0]?.driveFile).toBe('Evidence/activity-photo.jpg');
+    expect('dataUrl' in (archive.records.attachments[0] ?? {})).toBe(false);
     expect(archive.deletedRecords).toEqual([
       { entityType: 'resource', recordId: 'old', updatedAt: '2026-08-02T02:00:00.000Z' },
     ]);

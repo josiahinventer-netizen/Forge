@@ -96,6 +96,26 @@ describe('ForgeDatabase', () => {
     expect((await database.attachments.where('ownerId').equals(resource.id).first())?.kind).toBe(
       'Serial label',
     );
+    await database.attachments.put({
+      id: 'activity-photo',
+      ownerType: 'activity',
+      ownerId: 'activity-1',
+      kind: 'Project result',
+      fileName: 'result.jpg',
+      mimeType: 'image/jpeg',
+      byteSize: 3,
+      width: 1,
+      height: 1,
+      sha256: 'b'.repeat(64),
+      dataUrl: 'data:image/jpeg;base64,YWJj',
+      verificationStatus: 'Activity-supported',
+      notes: 'Observed result',
+      createdAt: '2026-01-02T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    });
+    expect((await database.attachments.get('activity-photo'))?.ownerType).toBe('activity');
   });
 
   it('persists, searches, updates, and archives capability references', async () => {

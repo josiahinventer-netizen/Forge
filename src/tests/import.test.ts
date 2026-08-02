@@ -36,6 +36,32 @@ describe('import validation', () => {
     expect(result.valid).toBe(true);
   });
 
+  it('accepts bounded photo evidence attached to an activity', () => {
+    const backup = bundle([]);
+    backup.records.attachments = [
+      {
+        id: 'activity-photo',
+        ownerType: 'activity',
+        ownerId: 'activity-1',
+        kind: 'Project result',
+        fileName: 'result.jpg',
+        mimeType: 'image/jpeg',
+        byteSize: 3,
+        width: 1,
+        height: 1,
+        sha256: 'd'.repeat(64),
+        dataUrl: 'data:image/jpeg;base64,YWJj',
+        verificationStatus: 'Activity-supported',
+        notes: 'Finished repair',
+        createdAt: '2026-08-02T00:00:00.000Z',
+        updatedAt: '2026-08-02T00:00:00.000Z',
+        tags: [],
+        archived: false,
+      },
+    ];
+    expect(validateImport(backup).valid).toBe(true);
+  });
+
   it('rejects malformed records, duplicate IDs, and future schemas', () => {
     const malformed = validateImport({
       ...bundle([]),

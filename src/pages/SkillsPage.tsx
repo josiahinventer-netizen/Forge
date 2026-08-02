@@ -5,6 +5,7 @@ import type { Level, Skill } from '../types/models';
 import { LEVEL_LABELS } from '../types/models';
 import { Card, Empty, Field, Modal, Page } from '../components/UI';
 import { summarizeSkillEvidence } from '../services/activityEvidence';
+import { EvidenceAttachments } from '../components/EvidenceAttachments';
 const empty = (): Skill => ({
   ...baseRecord(),
   name: '',
@@ -20,6 +21,11 @@ export function SkillsPage() {
   const skills = useLiveQuery(() => db.skills.filter((s) => !s.archived).toArray(), []) || [];
   const activities =
     useLiveQuery(() => db.activities.filter((item) => !item.archived).toArray(), []) || [];
+  const attachments =
+    useLiveQuery(
+      () => db.attachments.filter((item) => !item.archived && item.ownerType === 'skill').toArray(),
+      [],
+    ) || [];
   const [edit, setEdit] = useState<Skill | null>(null);
   const [q, setQ] = useState('');
   const shown = skills.filter((s) => (s.name + s.category).toLowerCase().includes(q.toLowerCase()));
@@ -72,6 +78,11 @@ export function SkillsPage() {
                 {summarizeSkillEvidence(s, activities).totalMinutes} minutes (
                 {summarizeSkillEvidence(s, activities).practicalMinutes} practical)
               </p>
+              {attachments.some((item) => item.ownerId === s.id) && (
+                <p className="evidence">
+                  Photo evidence · {attachments.filter((item) => item.ownerId === s.id).length}
+                </p>
+              )}
             </Card>
           ))}
         </div>
@@ -148,6 +159,12 @@ export function SkillsPage() {
                 onChange={(e) => setEdit({ ...edit, evidenceNotes: e.target.value })}
               />
             </Field>
+            <EvidenceAttachments
+              ownerType="skill"
+              ownerId={edit.id}
+              ownerName={edit.name || 'skill'}
+              saved={skills.some((skill) => skill.id === edit.id)}
+            />
             <div className="actions">
               <button type="submit">Save skill</button>
               {skills.some((s) => s.id === edit.id) && (
