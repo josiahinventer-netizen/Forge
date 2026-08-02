@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type {
   Capability,
+  Activity,
   EvidenceAttachment,
   Resource,
   Skill,
@@ -8,7 +9,7 @@ import type {
   Todo,
 } from '../types/models';
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
@@ -17,6 +18,7 @@ export class ForgeDatabase extends Dexie {
   syncSettings!: EntityTable<SyncSettings, 'id'>;
   attachments!: EntityTable<EvidenceAttachment, 'id'>;
   todos!: EntityTable<Todo, 'id'>;
+  activities!: EntityTable<Activity, 'id'>;
 
   constructor(name = 'forge') {
     super(name);
@@ -121,6 +123,18 @@ export class ForgeDatabase extends Dexie {
       capabilities: 'id, name, category, archived, updatedAt, *tags',
       attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
       todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
+      syncSettings: 'id',
+    });
+
+    // V8 adds an evidence ledger. Activities reference existing records and never alter levels.
+    this.version(8).stores({
+      skills: 'id, name, category, archived, updatedAt, *tags',
+      resources:
+        'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
+      capabilities: 'id, name, category, archived, updatedAt, *tags',
+      attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+      todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
+      activities: 'id, title, occurredAt, archived, updatedAt, *tags',
       syncSettings: 'id',
     });
   }

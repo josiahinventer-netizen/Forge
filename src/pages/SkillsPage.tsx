@@ -4,6 +4,7 @@ import { db, baseRecord, now } from '../database/db';
 import type { Level, Skill } from '../types/models';
 import { LEVEL_LABELS } from '../types/models';
 import { Card, Empty, Field, Modal, Page } from '../components/UI';
+import { summarizeSkillEvidence } from '../services/activityEvidence';
 const empty = (): Skill => ({
   ...baseRecord(),
   name: '',
@@ -17,6 +18,8 @@ const empty = (): Skill => ({
 });
 export function SkillsPage() {
   const skills = useLiveQuery(() => db.skills.filter((s) => !s.archived).toArray(), []) || [];
+  const activities =
+    useLiveQuery(() => db.activities.filter((item) => !item.archived).toArray(), []) || [];
   const [edit, setEdit] = useState<Skill | null>(null);
   const [q, setQ] = useState('');
   const shown = skills.filter((s) => (s.name + s.category).toLowerCase().includes(q.toLowerCase()));
@@ -64,6 +67,11 @@ export function SkillsPage() {
                 </span>
               </div>
               {s.evidenceNotes && <p className="evidence">Evidence · {s.evidenceNotes}</p>}
+              <p className="evidence">
+                Logged evidence · {summarizeSkillEvidence(s, activities).activityCount} activities ·{' '}
+                {summarizeSkillEvidence(s, activities).totalMinutes} minutes (
+                {summarizeSkillEvidence(s, activities).practicalMinutes} practical)
+              </p>
             </Card>
           ))}
         </div>

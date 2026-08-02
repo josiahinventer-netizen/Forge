@@ -2,15 +2,16 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router-dom';
 import { Card, Page } from '../components/UI';
 import { db } from '../database/db';
-import { assessCapability } from '../services/capabilityAvailability';
+import { assessCapability, rankClosestCapabilities } from '../services/capabilityAvailability';
 
 export function DashboardPage() {
   const counts = useLiveQuery(async () => {
-    const [skills, resources, capabilities, todos] = await Promise.all([
+    const [skills, resources, capabilities, todos, activities] = await Promise.all([
       db.skills.toArray(),
       db.resources.toArray(),
       db.capabilities.filter((capability) => !capability.archived).toArray(),
       db.todos.filter((todo) => !todo.archived).toArray(),
+      db.activities.filter((activity) => !activity.archived).toArray(),
     ]);
     const [activeSkills, archivedSkills, activeResources, archivedResources] = [
       skills.filter((skill) => !skill.archived).length,
@@ -37,6 +38,8 @@ export function DashboardPage() {
       overdueTodos: todos.filter(
         (todo) => todo.status !== 'Completed' && todo.dueAt && Date.parse(todo.dueAt) < Date.now(),
       ).length,
+      activities: activities.length,
+      closest: rankClosestCapabilities(capabilities, skills, resources).slice(0, 3),
     };
   }, []);
 
@@ -78,6 +81,10 @@ export function DashboardPage() {
           <b>{counts?.overdueTodos ?? '—'}</b>
           <span>Overdue todos</span>
         </Card>
+        <Card>
+          <b>{counts?.activities ?? '—'}</b>
+          <span>Logged activities</span>
+        </Card>
       </div>
       <div className="dashboard-grid">
         <Card>
@@ -108,6 +115,23 @@ export function DashboardPage() {
             Availability is recalculated from active skill levels and resource quantities. Every
             shortfall is shown in plain language; capability status is not stored as a score.
           </p>
+        </Card>
+        <Card>
+          <h2>Closest capabilities</h2>
+          {counts?.closest.length ? (
+            counts.closest.map(({ capability, assessment }) => (
+              <div key={capability.id} className="next">
+                <strong>{capability.name}</strong>
+                <p className="muted">
+                  {assessment.metRequirementCount} of {assessment.totalRequirementCount}{' '}
+                  requirements met.
+                </p>
+                <p>{assessment.recommendedStep}</p>
+              </div>
+            ))
+          ) : (
+            <p className="muted">Add capability requirements to see the nearest useful outcomes.</p>
+          )}
         </Card>
       </div>
     </Page>

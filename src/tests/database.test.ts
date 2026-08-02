@@ -21,6 +21,7 @@ describe('ForgeDatabase', () => {
 
     expect(database.verno).toBe(SCHEMA_VERSION);
     expect(database.tables.map((table) => table.name).sort()).toEqual([
+      'activities',
       'attachments',
       'capabilities',
       'resources',
@@ -190,6 +191,7 @@ describe('ForgeDatabase', () => {
     expect(resource?.verificationStatus).toBe('Confirmed');
     expect(resource?.photoDataUrls).toEqual([]);
     expect(migrated.tables.map((table) => table.name).sort()).toEqual([
+      'activities',
       'attachments',
       'capabilities',
       'resources',
@@ -199,6 +201,7 @@ describe('ForgeDatabase', () => {
     ]);
     expect(await migrated.capabilities.count()).toBe(0);
     expect(await migrated.attachments.count()).toBe(0);
+    expect(await migrated.activities.count()).toBe(0);
     expect(await migrated.todos.count()).toBe(0);
   });
 });

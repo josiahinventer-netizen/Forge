@@ -105,13 +105,63 @@ const todoOperation = z.object({
     completionNotes: z.string().optional(),
   }),
 });
+const activityOperation = z.object({
+  operation: z.literal('save'),
+  entityType: z.literal('activity'),
+  record: z.object({
+    id: z.string().min(1).optional(),
+    title: z.string().min(1),
+    description: z.string().optional(),
+    purpose: z.string().min(1),
+    occurredAt: z.string().datetime(),
+    durationMinutes: z.number().min(0),
+    outcome: z.string().optional(),
+    reflection: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    archived: z.boolean().optional(),
+    skillPractice: z
+      .array(
+        z.object({
+          skillId: z.string().min(1),
+          kind: z.enum([
+            'Study',
+            'Guided practice',
+            'Independent application',
+            'Troubleshooting',
+            'Teaching',
+          ]),
+          minutes: z.number().min(0),
+          verificationStatus: z.enum([
+            'Confirmed',
+            'Document-supported',
+            'Activity-supported',
+            'Inferred',
+            'Needs review',
+          ]),
+          notes: z.string().optional(),
+        }),
+      )
+      .optional(),
+    linkedResourceIds: z.array(z.string()).optional(),
+    linkedCapabilityIds: z.array(z.string()).optional(),
+    linkedTodoIds: z.array(z.string()).optional(),
+  }),
+});
 export const driveInboxRequestSchema = z.object({
   forgeInboxVersion: z.literal(DRIVE_INBOX_VERSION),
   requestId: z.string().min(1).max(100),
   createdAt: z.string().datetime(),
   summary: z.string().min(1).max(500),
   operations: z
-    .array(z.union([skillOperation, resourceOperation, capabilityOperation, todoOperation]))
+    .array(
+      z.union([
+        skillOperation,
+        resourceOperation,
+        capabilityOperation,
+        todoOperation,
+        activityOperation,
+      ]),
+    )
     .min(1)
     .max(50),
 });
@@ -157,6 +207,17 @@ const defaults: Record<SyncEntityType, Record<string, unknown>> = {
     completionNotes: '',
   },
   capability: { description: '', category: 'General', requiredSkills: [], requiredResources: [] },
+  activity: {
+    description: '',
+    purpose: '',
+    durationMinutes: 0,
+    outcome: '',
+    reflection: '',
+    skillPractice: [],
+    linkedResourceIds: [],
+    linkedCapabilityIds: [],
+    linkedTodoIds: [],
+  },
 };
 
 const payload = (record: ArchiveRecord | null) => record?.payload ?? null;
@@ -198,6 +259,9 @@ export function createDriveArchive(
           return { ...metadata, driveFile: `Evidence/${record.recordId}.${extension}` };
         }),
       todos: live.filter((record) => record.entityType === 'todo').map((record) => record.payload),
+      activities: live
+        .filter((record) => record.entityType === 'activity')
+        .map((record) => record.payload),
     },
     deletedRecords: records
       .filter((record) => record.deleted)
@@ -210,6 +274,7 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
   const resources = archive.records.resources;
   const capabilities = archive.records.capabilities;
   const todos = archive.records.todos;
+  const activities = archive.records.activities;
   return {
     'Forge Skills.csv': csv(
       [
@@ -313,6 +378,30 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         item?.updatedAt,
       ]),
     ),
+    'Forge Activities.csv': csv(
+      [
+        'id',
+        'title',
+        'purpose',
+        'occurredAt',
+        'durationMinutes',
+        'outcome',
+        'skillPractice',
+        'archived',
+        'updatedAt',
+      ],
+      activities.map((item) => [
+        item?.id,
+        item?.title,
+        item?.purpose,
+        item?.occurredAt,
+        item?.durationMinutes,
+        item?.outcome,
+        JSON.stringify(item?.skillPractice ?? []),
+        item?.archived,
+        item?.updatedAt,
+      ]),
+    ),
   };
 }
 
@@ -374,6 +463,25 @@ function buildChanges(
       const requirementRecord = current.get(`resource:${requirement.resourceId}`);
       if (!requirementRecord || requirementRecord.payload?.archived === true)
         throw new Error(`Required resource ${requirement.resourceId} is missing or archived.`);
+    }
+  }
+  for (const change of changes.filter((item) => item.entityType === 'activity')) {
+    const activity = change.payload;
+    for (const entry of (activity?.skillPractice ?? []) as Array<{ skillId: string }>) {
+      const record = current.get(`skill:${entry.skillId}`);
+      if (!record || record.payload?.archived === true)
+        throw new Error(`Activity skill ${entry.skillId} is missing or archived.`);
+    }
+    for (const [field, entityType] of [
+      ['linkedResourceIds', 'resource'],
+      ['linkedCapabilityIds', 'capability'],
+      ['linkedTodoIds', 'todo'],
+    ] as const) {
+      for (const id of (activity?.[field] ?? []) as string[]) {
+        const record = current.get(`${entityType}:${id}`);
+        if (!record || record.payload?.archived === true)
+          throw new Error(`Activity ${entityType} ${id} is missing or archived.`);
+      }
     }
   }
   return changes;

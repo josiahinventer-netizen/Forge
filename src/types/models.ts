@@ -86,6 +86,39 @@ export interface Todo extends BaseRecord {
   completedAt?: string;
 }
 
+export type PracticeKind =
+  'Study' | 'Guided practice' | 'Independent application' | 'Troubleshooting' | 'Teaching';
+
+export interface ActivitySkillPractice {
+  skillId: string;
+  kind: PracticeKind;
+  minutes: number;
+  verificationStatus: VerificationStatus;
+  notes: string;
+}
+
+export interface Activity extends BaseRecord {
+  title: string;
+  description: string;
+  purpose: string;
+  occurredAt: string;
+  durationMinutes: number;
+  outcome: string;
+  reflection: string;
+  skillPractice: ActivitySkillPractice[];
+  linkedResourceIds: string[];
+  linkedCapabilityIds: string[];
+  linkedTodoIds: string[];
+}
+
+export const PRACTICE_KINDS: readonly PracticeKind[] = [
+  'Study',
+  'Guided practice',
+  'Independent application',
+  'Troubleshooting',
+  'Teaching',
+];
+
 export const TODO_PRIORITIES: readonly TodoPriority[] = ['Low', 'Normal', 'High', 'Urgent'];
 
 export const EVIDENCE_KINDS: readonly EvidenceKind[] = [
@@ -161,6 +194,7 @@ export interface ExportBundle {
     capabilities: Capability[];
     attachments?: EvidenceAttachment[];
     todos?: Todo[];
+    activities?: Activity[];
   };
 }
 
