@@ -24,3 +24,11 @@ export interface PullResult {
   changes: SyncChange[];
   cursor: number;
 }
+
+export interface ArchiveRecord {
+  entityType: SyncEntityType;
+  recordId: string;
+  updatedAt: string;
+  deleted: boolean;
+  payload: Record<string, unknown> | null;
+}

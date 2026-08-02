@@ -110,6 +110,20 @@ When a device is connected under **Data â†’ Computer synchronization**, For
 
 Forge normally resolves the same record using its newest `updatedAt` value. If an older or same-time-but-different version reaches the computer, the active record remains unchanged and the rejected version is retained in SQLite's `sync_conflicts` table. A conflict-review interface is still planned; this preservation prevents the discarded version from being silently lost in the meantime.
 
+## Local ChatGPT and Codex access
+
+Forge includes a local stdio MCP server for AI-assisted archive work. It exposes overview, search, exact-record lookup, confirmed skill/resource/capability saves, and recent audit-log tools. It intentionally exposes no delete tool. Every read and write is recorded in the account-isolated SQLite `ai_audit_log` table.
+
+Run it directly for development with:
+
+```powershell
+$env:FORGE_MCP_USERNAME = 'your-local-username'
+$env:FORGE_MCP_WRITE = 'enabled'
+npm run mcp:start
+```
+
+The ChatGPT desktop app or Codex should launch this stdio server rather than expose it on the LAN. Write tools require an explicit `confirm: true` argument and are described to the model as requiring the user's confirmation. The password and device session token are not given to MCP. ChatGPT Remote can use the desktop host's local tools from a paired phone while that computer is awake and online.
+
 ### Move data between phone and computer
 
 1. On the source device, open **Data → Export all data**.

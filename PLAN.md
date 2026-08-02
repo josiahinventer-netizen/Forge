@@ -69,6 +69,7 @@
 - [x] Preserve rejected conflicting record versions in the local SQLite archive
 - [ ] Conflict-history review and manual resolution UI
 - [ ] Encrypted automatic local backups
-- [ ] Permission-scoped chat API and audit log
+- [x] Permission-scoped local MCP read/write tools and account-isolated AI audit log
+- [ ] Pair ChatGPT desktop MCP access with ChatGPT Remote on Android
 
 The data layer uses stable IDs and isolated services so future synchronization can be added without replacing feature UI. Capability status is derived rather than stored. Later-stage models and routes are intentionally absent until their implementation stage begins.

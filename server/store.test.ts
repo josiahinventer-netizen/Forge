@@ -168,3 +168,24 @@ describe('incremental account-isolated synchronization', () => {
     ).toBe(false);
   });
 });
+
+describe('Forge AI audit storage', () => {
+  it('records account-isolated AI reads and writes', async () => {
+    const store = makeStore();
+    const first = await store.createAccount('audit-user', 'long secure password');
+    const second = await store.createAccount('other-audit-user', 'long secure password');
+
+    store.recordAudit(first.id, {
+      toolName: 'forge_search',
+      operation: 'read',
+      request: { query: 'carpentry' },
+      result: { matchCount: 1 },
+    });
+
+    expect(store.auditCount(first.id)).toBe(1);
+    expect(store.auditCount(second.id)).toBe(0);
+    expect(store.recentAudit(first.id)).toEqual([
+      expect.objectContaining({ toolName: 'forge_search', operation: 'read' }),
+    ]);
+  });
+});

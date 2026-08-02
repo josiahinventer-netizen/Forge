@@ -9,7 +9,14 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { promisify } from 'node:util';
 import Database from 'better-sqlite3';
-import type { PullResult, PushResult, SyncChange, SyncChangeInput } from './types.js';
+import type {
+  ArchiveRecord,
+  PullResult,
+  PushResult,
+  SyncChange,
+  SyncChangeInput,
+  SyncEntityType,
+} from './types.js';
 import { SYNC_ENTITY_TYPES } from './types.js';
 
 const scrypt = promisify(scryptCallback);
@@ -131,6 +138,24 @@ export class ForgeSyncStore {
         PRAGMA user_version = 2;
       `);
     }
+    if (version < 3) {
+      this.database.exec(`
+        CREATE TABLE ai_audit_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          tool_name TEXT NOT NULL,
+          operation TEXT NOT NULL,
+          entity_type TEXT,
+          record_id TEXT,
+          request_json TEXT NOT NULL,
+          result_json TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX ai_audit_log_account_created
+          ON ai_audit_log(account_id, created_at);
+        PRAGMA user_version = 3;
+      `);
+    }
   }
 
   async createAccount(
@@ -199,6 +224,85 @@ export class ForgeSyncStore {
       return null;
     }
     return row.account_id;
+  }
+
+  accountIdForUsername(username: string): string | null {
+    const row = this.database
+      .prepare('SELECT id FROM accounts WHERE username = ?')
+      .get(normalizeUsername(username)) as { id: string } | undefined;
+    return row?.id ?? null;
+  }
+
+  archiveRecords(
+    accountId: string,
+    entityTypes: readonly SyncEntityType[] = SYNC_ENTITY_TYPES,
+  ): ArchiveRecord[] {
+    const placeholders = entityTypes.map(() => '?').join(', ');
+    const rows = this.database
+      .prepare(
+        `SELECT entity_type, record_id, updated_at, deleted, payload FROM records WHERE account_id = ? AND entity_type IN (${placeholders})`,
+      )
+      .all(accountId, ...entityTypes) as ChangeRow[];
+    return rows.map((row) => ({
+      entityType: row.entity_type as SyncEntityType,
+      recordId: row.record_id,
+      updatedAt: row.updated_at,
+      deleted: row.deleted === 1,
+      payload: row.payload ? (JSON.parse(row.payload) as Record<string, unknown>) : null,
+    }));
+  }
+
+  archiveRecord(
+    accountId: string,
+    entityType: SyncEntityType,
+    recordId: string,
+  ): ArchiveRecord | null {
+    return (
+      this.archiveRecords(accountId, [entityType]).find((record) => record.recordId === recordId) ??
+      null
+    );
+  }
+
+  recordAudit(
+    accountId: string,
+    entry: {
+      toolName: string;
+      operation: 'read' | 'write';
+      entityType?: SyncEntityType;
+      recordId?: string;
+      request: unknown;
+      result: unknown;
+    },
+  ) {
+    this.database
+      .prepare(
+        'INSERT INTO ai_audit_log (account_id, tool_name, operation, entity_type, record_id, request_json, result_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run(
+        accountId,
+        entry.toolName,
+        entry.operation,
+        entry.entityType ?? null,
+        entry.recordId ?? null,
+        JSON.stringify(entry.request),
+        JSON.stringify(entry.result),
+        new Date().toISOString(),
+      );
+  }
+
+  auditCount(accountId: string): number {
+    const row = this.database
+      .prepare('SELECT COUNT(*) AS count FROM ai_audit_log WHERE account_id = ?')
+      .get(accountId) as { count: number };
+    return row.count;
+  }
+
+  recentAudit(accountId: string, limit = 50): Array<Record<string, unknown>> {
+    return this.database
+      .prepare(
+        'SELECT id, tool_name AS toolName, operation, entity_type AS entityType, record_id AS recordId, created_at AS createdAt FROM ai_audit_log WHERE account_id = ? ORDER BY id DESC LIMIT ?',
+      )
+      .all(accountId, Math.min(Math.max(limit, 1), 100)) as Array<Record<string, unknown>>;
   }
 
   push(accountId: string, changes: SyncChangeInput[]): PushResult {

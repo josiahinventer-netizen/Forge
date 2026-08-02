@@ -139,6 +139,7 @@ export function createForgeServer(options: ForgeServerOptions) {
         const changed = await new Promise<boolean>((resolve) => {
           const finish = (value: boolean) => {
             clearTimeout(timeout);
+            clearInterval(databasePoll);
             changes.off(accountId, onChange);
             response.off('close', onClose);
             resolve(value);
@@ -146,6 +147,9 @@ export function createForgeServer(options: ForgeServerOptions) {
           const onChange = () => finish(true);
           const onClose = () => finish(false);
           const timeout = setTimeout(() => finish(false), 20_000);
+          const databasePoll = setInterval(() => {
+            if (store.pull(accountId, cursor).changes.length > 0) finish(true);
+          }, 500);
           changes.once(accountId, onChange);
           response.once('close', onClose);
           if (store.pull(accountId, cursor).changes.length > 0) finish(true);
