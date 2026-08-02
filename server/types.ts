@@ -1,4 +1,11 @@
-export const SYNC_ENTITY_TYPES = ['skill', 'resource', 'capability', 'attachment', 'todo'] as const;
+export const SYNC_ENTITY_TYPES = [
+  'skill',
+  'resource',
+  'capability',
+  'attachment',
+  'todo',
+  'activity',
+] as const;
 export type SyncEntityType = (typeof SYNC_ENTITY_TYPES)[number];
 
 export interface SyncChangeInput {

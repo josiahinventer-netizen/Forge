@@ -10,6 +10,7 @@ const links: Array<[string, string, string]> = [
   ['/settings', '⚙', 'Data'],
 ];
 links.splice(4, 0, ['/todos', '✓', 'Todos']);
+links.splice(5, 0, ['/activities', '◉', 'Progress']);
 
 export function Shell() {
   const [online, setOnline] = useState(navigator.onLine);

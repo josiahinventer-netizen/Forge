@@ -103,6 +103,25 @@ describe('Drive inbox', () => {
             priority: 'High',
           },
         },
+        {
+          operation: 'save',
+          entityType: 'activity',
+          record: {
+            id: 'activity-welding',
+            title: 'Study welding safety',
+            purpose: 'Prepare for safe practical work',
+            occurredAt: '2026-08-02T12:00:00.000Z',
+            durationMinutes: 30,
+            skillPractice: [
+              {
+                skillId: 'skill-welding',
+                kind: 'Study',
+                minutes: 30,
+                verificationStatus: 'Activity-supported',
+              },
+            ],
+          },
+        },
       ],
     };
     writeFileSync(join(directory, 'Inbox', 'forge-request-welding.json'), JSON.stringify(request));
@@ -118,6 +137,9 @@ describe('Drive inbox', () => {
     expect(store.driveInboxReceipt(account.id, 'request-1')?.status).toBe('processed');
     expect(store.archiveRecord(account.id, 'todo', 'todo-practice')?.payload?.purpose).toBe(
       'Build practical skill',
+    );
+    expect(store.archiveRecord(account.id, 'activity', 'activity-welding')?.payload?.title).toBe(
+      'Study welding safety',
     );
 
     writeFileSync(

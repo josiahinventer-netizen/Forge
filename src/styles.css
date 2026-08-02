@@ -723,6 +723,8 @@ form > button:last-child {
     display: flex;
     justify-content: space-around;
     padding-bottom: env(safe-area-inset-bottom);
+    overflow-x: auto;
+    justify-content: flex-start;
   }
   .bottom-nav a {
     color: var(--muted);
@@ -731,7 +733,8 @@ form > button:last-child {
     place-items: center;
     align-content: center;
     gap: 0.15rem;
-    min-width: 58px;
+    min-width: 64px;
+    flex: 1 0 64px;
   }
   .bottom-nav a span {
     font-size: 1.1rem;

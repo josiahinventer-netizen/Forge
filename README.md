@@ -12,18 +12,20 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Resource intelligence for durable assets and consumables, including manufacturer, model, serial number, lifecycle, maintenance, value, verification status, and evidence notes
 - Phone camera/file evidence for resources, resized before storage, deduplicated by SHA-256, synchronized as bounded attachment records, and mirrored into Google Drive for ChatGPT
 - Purpose-aware todos with priorities, scheduling, due times, duration estimates, reminder lead times, linked Forge records, completion notes, and in-app overdue/reminder banners
+- Purpose-aware activity/evidence ledger linking real work to existing records, with distinct practice types
+- Explainable skill activity summaries and closest-capability next steps without opaque automatic level awards
 - Capability creation, editing, detail viewing, search, and archiving
 - Skill requirements with separate minimum knowledge and practical levels
 - Resource requirements with quantities and units
 - Live Available, Partially available, or Blocked calculations
 - Structured and plain-language missing requirements with a recommended next step
 - Dashboard capability counts derived from current records
-- Versioned Dexie schema with tested migrations through schema version 7
+- Versioned Dexie schema with tested migrations through schema version 8
 - JSON export containing app/schema metadata plus active and archived records
 - Validated JSON import with conflict-safe merge and explicitly confirmed replacement
 - PWA manifest, service worker, application-shell caching, and offline indicator
 
-Activity history, recurring task occurrences, background OS alarms, Bored Mode, health tracking, civilization scoring, knowledge entries, and onboarding are not implemented. See [PLAN.md](./PLAN.md) for staged work. In-app todo reminders are dependable while Forge is open; browsers and Android may suspend a closed PWA, so Forge does not yet claim closed-app alarm delivery.
+Weekly activity summaries, recurring task occurrences, background OS alarms, Bored Mode, health tracking, civilization scoring, knowledge entries, and onboarding are not implemented. See [PLAN.md](./PLAN.md) for staged work. In-app todo reminders are dependable while Forge is open; browsers and Android may suspend a closed PWA, so Forge does not yet claim closed-app alarm delivery.
 
 ## Run locally
 
@@ -71,13 +73,13 @@ The bridge creates:
 
 - `Forge Archive.json` — the current versioned, human-readable archive, including archived records and deletion tombstones.
 - `Backups/` — timestamped snapshots created whenever the record set changes or the bridge restarts.
-- `Excel/` — separate skills, resources, and capabilities CSV files for local Excel access.
+- `Excel/` — separate skills, resources, capabilities, todos, and activities CSV files for local Excel access.
 - `CHATGPT-FORGE-INSTRUCTIONS.md` and `Forge Inbox Example.json` — instructions and a request template for ChatGPT.
 - `Inbox/` — proposed `forge-request-*.json` files awaiting validation.
 - `Processed/` and `Rejected/` — original requests plus machine-readable receipts or errors.
 - `Evidence/` — image evidence mirrored from synchronized Forge attachments using stable attachment IDs.
 
-ChatGPT must create a new request file rather than edit `Forge Archive.json`. The inbox accepts only version 1 `save` operations for skills, resources, and capabilities. It validates field types, skill levels, quantities, and linked capability requirements before writing. It has no delete operation; records can be archived with `archived: true`. Stable request IDs are stored in SQLite so retries and duplicate uploads cannot apply the same request twice. Accepted writes use the normal sync store, appear on other Forge devices through the existing synchronization protocol, and are recorded in the AI audit log.
+ChatGPT must create a new request file rather than edit `Forge Archive.json`. The inbox accepts version 1 `save` operations for skills, resources, capabilities, todos, and activities. It validates field types, levels, quantities, and linked requirements before writing. It has no delete operation; records can be archived with `archived: true`. Stable request IDs are stored in SQLite so retries and duplicate uploads cannot apply the same request twice. Accepted writes use the normal sync store, appear on other Forge devices through the existing synchronization protocol, and are recorded in the AI audit log.
 
 A clear conversational command such as “add DeWalt reciprocating saw to my tools in Forge” authorizes that non-destructive creation without a second confirmation. ChatGPT should correct obvious spelling and capitalization, check for duplicates, and use conservative defaults without inventing experience or condition. Ambiguous requests, changes to existing records, and archiving still require clarification or confirmation.
 
@@ -136,6 +138,7 @@ All records are stored locally using Dexie and IndexedDB. Use **Data → Export 
 - All capability records
 - All bounded evidence attachment records, including their resized image data
 - All todo records, schedules, links, purpose, and completion information
+- All activity records, outcomes, reflections, links, and structured skill evidence
 
 When a device is connected under **Data â†’ Computer synchronization**, Forge observes local record changes and synchronizes them automatically after a short debounce. The computer maintains an authenticated waiting connection that wakes other open Forge devices when changes arrive. Forge also synchronizes at startup, when connectivity returns, and every 30 seconds as a fallback. If the browser suspends or closes the PWA, queued record state converges automatically on its next launch. Passwords are not saved on the device. Exported and imported files are never sent automatically.
 
@@ -191,4 +194,4 @@ Imports are parsed and fully validated before any IndexedDB write. This remains 
 - `src/tests` — database, migration, and export tests
 
 Current app version: **1.0.0**  
-Current database schema version: **7**
+Current database schema version: **8**

@@ -42,6 +42,36 @@ export interface CapabilityAssessment {
   recommendedStep: string | null;
 }
 
+export interface RankedCapability {
+  capability: Capability;
+  assessment: CapabilityAssessment;
+  coverage: number;
+}
+
+export function rankClosestCapabilities(
+  capabilities: readonly Capability[],
+  skills: readonly Skill[],
+  resources: readonly Resource[],
+): RankedCapability[] {
+  return capabilities
+    .filter((item) => !item.archived)
+    .map((capability) => {
+      const assessment = assessCapability(capability, skills, resources);
+      const coverage =
+        assessment.totalRequirementCount === 0
+          ? 1
+          : assessment.metRequirementCount / assessment.totalRequirementCount;
+      return { capability, assessment, coverage };
+    })
+    .filter((item) => item.assessment.status !== 'Available')
+    .sort(
+      (a, b) =>
+        b.coverage - a.coverage ||
+        a.assessment.missing.length - b.assessment.missing.length ||
+        a.capability.name.localeCompare(b.capability.name),
+    );
+}
+
 const unavailableName = (kind: 'skill' | 'resource', id: string) =>
   `${kind === 'skill' ? 'Skill' : 'Resource'} ${id}`;
 

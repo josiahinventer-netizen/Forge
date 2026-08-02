@@ -41,6 +41,17 @@
 - [x] Mobile-friendly import preview and result messaging
 - [x] Automated validation, merge, and replacement tests
 
+## Stage 7 — Activity evidence and explainable progress (foundation complete)
+
+- [x] Create, edit, view, search, and archive purpose-aware activities
+- [x] Link activities to existing skills, resources, capabilities, and todos
+- [x] Distinguish study, guided practice, independent application, troubleshooting, and teaching
+- [x] Pure skill-evidence summaries that do not silently award levels
+- [x] Dashboard activity count and closest-capability explanations
+- [x] Dexie schema 8 migration, device sync, JSON export, and Drive archive/CSV
+- [ ] Evidence history with multiple attributed document sources
+- [ ] Weekly summaries and guided level-review suggestions
+
 ## Later stages (not started)
 
 1. Activity timeline and weekly summaries

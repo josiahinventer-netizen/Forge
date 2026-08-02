@@ -89,6 +89,32 @@ describe('device synchronization', () => {
       tags: [],
       archived: false,
     };
+    const activity = {
+      id: 'activity-1',
+      title: 'Repair practice',
+      description: '',
+      purpose: 'Improve carpentry',
+      occurredAt: '2026-02-02T00:00:00.000Z',
+      durationMinutes: 30,
+      outcome: 'Joint repaired',
+      reflection: '',
+      skillPractice: [
+        {
+          skillId: local.id,
+          kind: 'Troubleshooting' as const,
+          minutes: 30,
+          verificationStatus: 'Activity-supported' as const,
+          notes: '',
+        },
+      ],
+      linkedResourceIds: [],
+      linkedCapabilityIds: [],
+      linkedTodoIds: [],
+      createdAt: '2026-02-02T00:00:00.000Z',
+      updatedAt: '2026-02-02T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    };
     await database.skills.put(local);
     await database.syncSettings.put({
       id: 'primary',
@@ -122,17 +148,28 @@ describe('device synchronization', () => {
               deleted: false,
               payload: attachment,
             },
+            {
+              revision: 8,
+              entityType: 'activity',
+              recordId: activity.id,
+              updatedAt: activity.updatedAt,
+              deleted: false,
+              payload: activity,
+            },
           ],
-          cursor: 7,
+          cursor: 8,
         }),
       );
 
     const result = await syncNow(database, fetcher);
 
-    expect(result).toEqual({ pushed: 1, pulled: 2 });
+    expect(result).toEqual({ pushed: 1, pulled: 3 });
     expect((await database.skills.get('carpentry'))?.practicalLevel).toBe(3);
-    expect((await database.syncSettings.get('primary'))?.cursor).toBe(7);
+    expect((await database.syncSettings.get('primary'))?.cursor).toBe(8);
     expect((await database.attachments.get('photo-1'))?.ownerId).toBe('carpentry');
+    expect((await database.activities.get('activity-1'))?.skillPractice[0]?.kind).toBe(
+      'Troubleshooting',
+    );
     expect(fetcher.mock.calls[1]?.[0]).toBe('https://computer.local:8787/api/sync/pull?cursor=0');
     const pushedBody = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
       changes: Array<{ recordId: string }>;
