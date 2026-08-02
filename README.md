@@ -36,6 +36,26 @@ npm run build
 npm run preview
 ```
 
+## Local sync server foundation
+
+Forge includes an early user-owned synchronization server. It is not connected to the PWA yet and intentionally listens only on `127.0.0.1`, so it cannot currently be reached by a phone or another computer.
+
+Start it with:
+
+```bash
+npm run server:start
+```
+
+The server creates `data/forge-sync.sqlite`, which is ignored by Git. It provides:
+
+- Multiple isolated local accounts
+- Scrypt-hashed passwords and hashed 30-day device sessions
+- Incremental skill, resource, and capability changes
+- Cursor-based downloads, stale-write protection, and deletion tombstones
+- A strict GitHub Pages origin allowlist
+
+No personal records are stored on GitHub or a third-party data service. Before LAN access is enabled, Forge still needs a trusted local HTTPS identity, device pairing, PWA sync queues, visible status, backups, and recovery tools. Do not expose port `8787` through a router or firewall.
+
 ## Publish as an HTTPS PWA
 
 Forge includes `.github/workflows/deploy-pages.yml`. Once this repository is pushed to GitHub and **Settings → Pages → Source** is set to **GitHub Actions**, every push to `main` runs verification, builds the PWA, and updates the same HTTPS address.
@@ -59,7 +79,7 @@ npm run format:check
 npm run build
 ```
 
-The automated suite covers database creation, record persistence and updates, searching, archiving, schema migration, export completeness, and capability availability edge cases.
+The automated suite covers browser database creation, record persistence and updates, searching, archiving, schema migration, import/export behavior, capability availability, local account isolation, authentication, and incremental synchronization.
 
 ## Capability availability
 

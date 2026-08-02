@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "server:start": "tsx server/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -21,7 +22,8 @@
     "react-dom": "^19.1.0",
     "react-router-dom": "7.18.2",
     "vite": "^6.3.5",
-    "vite-plugin-pwa": "^1.0.0"
+    "vite-plugin-pwa": "^1.0.0",
+    "better-sqlite3": "^13.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",
@@ -29,6 +31,8 @@
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.1.0",
     "eslint": "^9.28.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
@@ -37,6 +41,7 @@
     "jsdom": "^26.1.0",
     "prettier": "^3.5.3",
     "typescript": "~5.8.3",
+    "tsx": "^4.23.4",
     "typescript-eslint": "^8.33.1",
     "vitest": "^3.2.2"
   }

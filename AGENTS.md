@@ -86,6 +86,7 @@ Fix all failures before reporting completion. Do not describe a task as complete
 - `npm run dev` — start the Vite development server.
 - `npm run build` — run the TypeScript project build and create the Vite production bundle.
 - `npm run preview` — serve the production build locally for inspection.
+- `npm run server:start` — run the localhost-only Forge Sync Server and local SQLite database.
 - `npm test` — run the Vitest suite once.
 - `npm run test:watch` — run Vitest in watch mode during development.
 - `npm run lint` — run ESLint across the repository.
@@ -100,5 +101,6 @@ Fix all failures before reporting completion. Do not describe a task as complete
 - `src/pages` owns route-level presentation and user interaction.
 - `src/components` owns shared UI and application-shell components.
 - `src/tests` owns automated database, migration, and service verification.
+- `server` owns the user-hosted HTTP API, account authentication, SQLite persistence, and sync protocol.
 
 Keep these boundaries intact unless a concrete requirement demonstrates that a small, documented adjustment is necessary.

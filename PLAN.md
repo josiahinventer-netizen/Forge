@@ -46,9 +46,24 @@
 1. Actions, timeline, and weekly summaries
 2. Bored Mode recommendation engine
 3. Knowledge entries and evidence-aware progression scoring
-4. User-owned computer synchronization service
-5. Permission-scoped local API for chat-assisted record management
-6. Onboarding, themes, and safe local-data clearing
-7. Broader offline, accessibility, and device testing
+4. Onboarding, themes, and safe local-data clearing
+5. Broader offline, accessibility, and device testing
+
+## Stage 4 — User-owned sync server foundation (in progress)
+
+- [x] Free local SQLite storage under an ignored `data/` directory
+- [x] Multiple isolated local accounts
+- [x] Scrypt password hashing with per-account salts
+- [x] Hashed, expiring device session tokens
+- [x] Incremental cursor-based skill, resource, and capability changes
+- [x] Stale-write protection and deletion tombstones
+- [x] Strict account isolation and sync-store tests
+- [x] Localhost-only HTTP API with an explicit web-origin allowlist
+- [ ] Local HTTPS identity trusted by the computer and Android phone
+- [ ] One-time device pairing and recovery codes
+- [ ] PWA login and IndexedDB outbox/inbox integration
+- [ ] Background retry and visible sync status
+- [ ] Encrypted automatic local backups
+- [ ] Permission-scoped chat API and audit log
 
 The data layer uses stable IDs and isolated services so future synchronization can be added without replacing feature UI. Capability status is derived rather than stored. Later-stage models and routes are intentionally absent until their implementation stage begins.

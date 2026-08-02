@@ -1,0 +1,141 @@
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { ForgeSyncStore, validateSyncChange } from './store.js';
+
+export interface ForgeServerOptions {
+  databasePath: string;
+  host?: string;
+  port?: number;
+  allowedOrigin?: string;
+}
+
+const json = (response: ServerResponse, status: number, body: unknown) => {
+  response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
+  response.end(JSON.stringify(body));
+};
+
+async function readJson(request: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > 1_000_000) throw new Error('Request body exceeds 1 MB.');
+    chunks.push(buffer);
+  }
+  if (!chunks.length) return {};
+  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
+}
+
+const fields = (value: unknown): Record<string, unknown> | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+const bearerToken = (request: IncomingMessage) => {
+  const authorization = request.headers.authorization;
+  return authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
+};
+
+export function createForgeServer(options: ForgeServerOptions) {
+  const store = new ForgeSyncStore(options.databasePath);
+  const allowedOrigin = options.allowedOrigin ?? 'https://josiahinventer-netizen.github.io';
+  const server = createServer(async (request, response) => {
+    const origin = request.headers.origin;
+    if (origin === allowedOrigin) {
+      response.setHeader('access-control-allow-origin', origin);
+      response.setHeader('vary', 'Origin');
+      response.setHeader('access-control-allow-headers', 'authorization, content-type');
+      response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+    }
+    if (request.method === 'OPTIONS') {
+      response.writeHead(origin === allowedOrigin ? 204 : 403);
+      response.end();
+      return;
+    }
+
+    const url = new URL(request.url ?? '/', 'http://localhost');
+    try {
+      if (request.method === 'GET' && url.pathname === '/api/health') {
+        json(response, 200, { status: 'ok', storage: 'local' });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/accounts') {
+        const body = fields(await readJson(request));
+        if (!body || typeof body.username !== 'string' || typeof body.password !== 'string') {
+          json(response, 400, { error: 'Username and password are required.' });
+          return;
+        }
+        const account = await store.createAccount(body.username, body.password);
+        json(response, 201, account);
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/sessions') {
+        const body = fields(await readJson(request));
+        if (!body || typeof body.username !== 'string' || typeof body.password !== 'string') {
+          json(response, 400, { error: 'Username and password are required.' });
+          return;
+        }
+        const session = await store.createSession(body.username, body.password);
+        json(response, 200, session);
+        return;
+      }
+
+      const token = bearerToken(request);
+      const accountId = token ? store.authenticate(token) : null;
+      if (!accountId) {
+        json(response, 401, { error: 'A valid device session is required.' });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/sync/push') {
+        const body = fields(await readJson(request));
+        if (!body || !Array.isArray(body.changes) || !body.changes.every(validateSyncChange)) {
+          json(response, 400, { error: 'Changes are missing or invalid.' });
+          return;
+        }
+        json(response, 200, store.push(accountId, body.changes));
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/sync/pull') {
+        const cursor = Number(url.searchParams.get('cursor') ?? '0');
+        if (!Number.isSafeInteger(cursor) || cursor < 0) {
+          json(response, 400, { error: 'Cursor must be a nonnegative integer.' });
+          return;
+        }
+        json(response, 200, store.pull(accountId, cursor));
+        return;
+      }
+      json(response, 404, { error: 'Not found.' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unexpected server error.';
+      const clientError =
+        message.includes('Username') ||
+        message.includes('Password') ||
+        message.includes('already exists') ||
+        message.includes('Invalid username') ||
+        message.includes('JSON') ||
+        message.includes('1 MB');
+      json(response, clientError ? 400 : 500, {
+        error: clientError ? message : 'Unexpected server error.',
+      });
+    }
+  });
+
+  return {
+    store,
+    server,
+    async start() {
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(options.port ?? 8787, options.host ?? '127.0.0.1', () => resolve());
+      });
+      return server.address() as AddressInfo;
+    },
+    async stop() {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+      store.close();
+    },
+  };
+}
