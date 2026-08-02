@@ -1,4 +1,10 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { readFileSync } from 'node:fs';
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
 import type { AddressInfo } from 'node:net';
 import { ForgeSyncStore, validateSyncChange } from './store.js';
 
@@ -7,6 +13,8 @@ export interface ForgeServerOptions {
   host?: string;
   port?: number;
   allowedOrigin?: string;
+  tlsCertificatePath?: string;
+  tlsKeyPath?: string;
 }
 
 const json = (response: ServerResponse, status: number, body: unknown) => {
@@ -38,15 +46,27 @@ const bearerToken = (request: IncomingMessage) => {
 };
 
 export function createForgeServer(options: ForgeServerOptions) {
+  const host = options.host ?? '127.0.0.1';
+  const hasTls = Boolean(options.tlsCertificatePath && options.tlsKeyPath);
+  const isLoopback = host === '127.0.0.1' || host === '::1' || host === 'localhost';
+  if (!isLoopback && !hasTls) {
+    throw new Error('Forge refuses non-loopback access without a TLS certificate and key.');
+  }
+  if (Boolean(options.tlsCertificatePath) !== Boolean(options.tlsKeyPath)) {
+    throw new Error('Both TLS certificate and key paths are required.');
+  }
   const store = new ForgeSyncStore(options.databasePath);
   const allowedOrigin = options.allowedOrigin ?? 'https://josiahinventer-netizen.github.io';
-  const server = createServer(async (request, response) => {
+  const handleRequest = async (request: IncomingMessage, response: ServerResponse) => {
     const origin = request.headers.origin;
     if (origin === allowedOrigin) {
       response.setHeader('access-control-allow-origin', origin);
       response.setHeader('vary', 'Origin');
       response.setHeader('access-control-allow-headers', 'authorization, content-type');
       response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+      if (request.headers['access-control-request-private-network'] === 'true') {
+        response.setHeader('access-control-allow-private-network', 'true');
+      }
     }
     if (request.method === 'OPTIONS') {
       response.writeHead(origin === allowedOrigin ? 204 : 403);
@@ -119,7 +139,17 @@ export function createForgeServer(options: ForgeServerOptions) {
         error: clientError ? message : 'Unexpected server error.',
       });
     }
-  });
+  };
+  const server = hasTls
+    ? createHttpsServer(
+        {
+          cert: readFileSync(options.tlsCertificatePath!),
+          key: readFileSync(options.tlsKeyPath!),
+          minVersion: 'TLSv1.2',
+        },
+        handleRequest,
+      )
+    : createHttpServer(handleRequest);
 
   return {
     store,
@@ -127,7 +157,7 @@ export function createForgeServer(options: ForgeServerOptions) {
     async start() {
       await new Promise<void>((resolve, reject) => {
         server.once('error', reject);
-        server.listen(options.port ?? 8787, options.host ?? '127.0.0.1', () => resolve());
+        server.listen(options.port ?? 8787, host, () => resolve());
       });
       return server.address() as AddressInfo;
     },

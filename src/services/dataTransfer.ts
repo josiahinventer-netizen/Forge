@@ -40,7 +40,7 @@ function hasBaseRecord(value: Record<string, unknown>): boolean {
   );
 }
 
-function isSkill(value: unknown): value is Skill {
+export function isSkill(value: unknown): value is Skill {
   if (!isRecord(value) || !hasBaseRecord(value)) return false;
   return (
     typeof value.name === 'string' &&
@@ -57,7 +57,7 @@ function isSkill(value: unknown): value is Skill {
   );
 }
 
-function isResource(value: unknown): value is Resource {
+export function isResource(value: unknown): value is Resource {
   if (!isRecord(value) || !hasBaseRecord(value)) return false;
   return (
     typeof value.name === 'string' &&
@@ -92,7 +92,7 @@ function isResourceRequirement(value: unknown): value is CapabilityResourceRequi
   );
 }
 
-function isCapability(value: unknown): value is Capability {
+export function isCapability(value: unknown): value is Capability {
   if (!isRecord(value) || !hasBaseRecord(value)) return false;
   return (
     typeof value.name === 'string' &&

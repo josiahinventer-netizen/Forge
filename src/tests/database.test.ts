@@ -24,6 +24,7 @@ describe('ForgeDatabase', () => {
       'capabilities',
       'resources',
       'skills',
+      'syncSettings',
     ]);
   });
 
@@ -164,6 +165,7 @@ describe('ForgeDatabase', () => {
       'capabilities',
       'resources',
       'skills',
+      'syncSettings',
     ]);
     expect(await migrated.capabilities.count()).toBe(0);
   });

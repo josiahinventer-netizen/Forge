@@ -38,7 +38,7 @@ npm run preview
 
 ## Local sync server foundation
 
-Forge includes an early user-owned synchronization server. It is not connected to the PWA yet and intentionally listens only on `127.0.0.1`, so it cannot currently be reached by a phone or another computer.
+Forge includes a user-owned synchronization server connected to the PWA through its Data settings. The default command listens only on `127.0.0.1`; the separate encrypted LAN command can be reached by trusted devices on the same local network.
 
 Start it with:
 
@@ -46,7 +46,9 @@ Start it with:
 npm run server:start
 ```
 
-The server creates `data/forge-sync.sqlite`, which is ignored by Git. It provides:
+After generating trusted local certificates under `%LOCALAPPDATA%\Forge\certs`, encrypted LAN mode can be started with `npm run server:lan`. The current development certificate covers this computer at `192.168.0.187` and `DESKTOP-4712NEU`. The LAN command refuses to start if its certificate or key is missing. The public certificate authority is available locally at `%LOCALAPPDATA%\Forge\certs\rootCA.pem` for installation on trusted devices; its private key must never leave the computer. Never forward port `8787` through the router.
+
+The server creates `%LOCALAPPDATA%\Forge\forge-sync.sqlite` on Windows, outside the repository and its OneDrive folder. `FORGE_DATA_DIR` can override the application-data directory. It provides:
 
 - Multiple isolated local accounts
 - Scrypt-hashed passwords and hashed 30-day device sessions
@@ -54,7 +56,7 @@ The server creates `data/forge-sync.sqlite`, which is ignored by Git. It provide
 - Cursor-based downloads, stale-write protection, and deletion tombstones
 - A strict GitHub Pages origin allowlist
 
-No personal records are stored on GitHub or a third-party data service. Before LAN access is enabled, Forge still needs a trusted local HTTPS identity, device pairing, PWA sync queues, visible status, backups, and recovery tools. Do not expose port `8787` through a router or firewall.
+No personal records are stored on GitHub or a third-party data service. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge still needs recovery codes, encrypted automatic backups, and a permission-scoped chat API. Do not expose port `8787` through a router or firewall.
 
 ## Publish as an HTTPS PWA
 
@@ -102,17 +104,17 @@ All records are stored locally using Dexie and IndexedDB. Use **Data → Export 
 - All resource records
 - All capability records
 
-Automatic synchronization is deliberately deferred. Exported and imported files are never sent anywhere by Forge.
+When a device is connected under **Data â†’ Computer synchronization**, Forge synchronizes with the user-owned computer at startup, when connectivity returns, every 30 seconds while open, and on demand. Passwords are not saved on the device. Exported and imported files are never sent automatically.
 
 ### Move data between phone and computer
 
 1. On the source device, open **Data → Export all data**.
-2. Save or share the JSON file through a location you control, such as OneDrive or USB.
+2. Save or transfer the JSON file through a location you control, such as a direct USB connection.
 3. On the destination device, open **Data → Import JSON backup** and select the file.
 4. Choose **Merge with this device** to retain unique records from both devices. When IDs match, Forge keeps the record with the newest `updatedAt` timestamp.
 5. Use **Replace this device** only when the selected backup should become the complete local database; Forge asks for confirmation immediately before replacement.
 
-Imports are parsed and fully validated before any IndexedDB write. This is manual device transfer, not automatic synchronization.
+Imports are parsed and fully validated before any IndexedDB write. This remains available as a manual backup and recovery path alongside synchronization.
 
 ## Manual smoke checklist
 

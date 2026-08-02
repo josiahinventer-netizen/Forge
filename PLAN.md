@@ -59,10 +59,12 @@
 - [x] Stale-write protection and deletion tombstones
 - [x] Strict account isolation and sync-store tests
 - [x] Localhost-only HTTP API with an explicit web-origin allowlist
-- [ ] Local HTTPS identity trusted by the computer and Android phone
+- [x] Local HTTPS identity generated and trusted by the computer
+- [x] Keep the sync database and private TLS key outside the OneDrive-hosted repository
+- [x] Install the local HTTPS certificate authority on the Android phone
 - [ ] One-time device pairing and recovery codes
-- [ ] PWA login and IndexedDB outbox/inbox integration
-- [ ] Background retry and visible sync status
+- [x] PWA local-account sign-in and IndexedDB push/pull integration
+- [x] Foreground automatic retry and visible sync status
 - [ ] Encrypted automatic local backups
 - [ ] Permission-scoped chat API and audit log
 

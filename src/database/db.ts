@@ -1,12 +1,13 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Capability, Resource, Skill } from '../types/models';
+import type { Capability, Resource, Skill, SyncSettings } from '../types/models';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
   resources!: EntityTable<Resource, 'id'>;
   capabilities!: EntityTable<Capability, 'id'>;
+  syncSettings!: EntityTable<SyncSettings, 'id'>;
 
   constructor(name = 'forge') {
     super(name);
@@ -57,6 +58,14 @@ export class ForgeDatabase extends Dexie {
       skills: 'id, name, category, archived, updatedAt, *tags',
       resources: 'id, name, category, resourceType, archived, updatedAt, *tags',
       capabilities: 'id, name, category, archived, updatedAt, *tags',
+    });
+
+    // V4 stores device-local sync connection state without changing personal records.
+    this.version(4).stores({
+      skills: 'id, name, category, archived, updatedAt, *tags',
+      resources: 'id, name, category, resourceType, archived, updatedAt, *tags',
+      capabilities: 'id, name, category, archived, updatedAt, *tags',
+      syncSettings: 'id',
     });
   }
 }

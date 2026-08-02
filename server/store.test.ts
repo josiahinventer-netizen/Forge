@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from 'vitest';
 import { ForgeSyncStore, validateSyncChange } from './store.js';
+import { createForgeServer } from './http.js';
 
 const stores: ForgeSyncStore[] = [];
 const makeStore = () => {
@@ -39,6 +40,14 @@ describe('ForgeSyncStore accounts', () => {
   });
 });
 
+describe('Forge server network safety', () => {
+  it('refuses non-loopback binding without TLS', () => {
+    expect(() =>
+      createForgeServer({ databasePath: ':memory:', host: '0.0.0.0', port: 8787 }),
+    ).toThrow('refuses non-loopback access without a TLS certificate and key');
+  });
+});
+
 describe('incremental account-isolated synchronization', () => {
   it('pushes and pulls changes only for the authenticated account', async () => {
     const store = makeStore();
@@ -68,6 +77,7 @@ describe('incremental account-isolated synchronization', () => {
       payload: { id: 'carpentry', name: 'Carpentry', practicalLevel: 3 },
     };
     const pushed = store.push(account.id, [newest]);
+    const duplicate = store.push(account.id, [newest]);
     const stale = store.push(account.id, [
       { ...newest, updatedAt: '2026-08-01T12:00:00.000Z', payload: { name: 'Old' } },
     ]);
@@ -80,6 +90,7 @@ describe('incremental account-isolated synchronization', () => {
       },
     ]);
 
+    expect(duplicate).toMatchObject({ accepted: 0, ignored: 1, cursor: pushed.cursor });
     expect(stale).toMatchObject({ accepted: 0, ignored: 1, cursor: pushed.cursor });
     expect(deletion.cursor).toBeGreaterThan(pushed.cursor);
     expect(store.pull(account.id, pushed.cursor).changes).toEqual([

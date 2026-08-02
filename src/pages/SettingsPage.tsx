@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Card, Page } from '../components/UI';
-import { SCHEMA_VERSION } from '../database/db';
+import { db, SCHEMA_VERSION } from '../database/db';
 import { createExport, downloadExport, importData, validateImport } from '../services/dataTransfer';
+import { connectDevice, syncNow } from '../services/sync';
 import type { ExportBundle } from '../types/models';
 
 export function SettingsPage() {
@@ -10,6 +12,38 @@ export function SettingsPage() {
   const [selectedName, setSelectedName] = useState('');
   const [selectedBundle, setSelectedBundle] = useState<ExportBundle | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const syncSettings = useLiveQuery(() => db.syncSettings.get('primary'), []);
+  const [serverUrl, setServerUrl] = useState('https://192.168.0.187:8787');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [syncBusy, setSyncBusy] = useState(false);
+
+  const connect = async (createAccount: boolean) => {
+    setSyncBusy(true);
+    setStatus('');
+    try {
+      await connectDevice(serverUrl, username, password, createAccount);
+      setPassword('');
+      const result = await syncNow();
+      setStatus(`Connected and synchronized ${result.pushed} local records.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not connect to Forge Sync.');
+    } finally {
+      setSyncBusy(false);
+    }
+  };
+
+  const synchronize = async () => {
+    setSyncBusy(true);
+    try {
+      const result = await syncNow();
+      setStatus(`Sync complete: checked ${result.pushed} local and received ${result.pulled}.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Synchronization failed.');
+    } finally {
+      setSyncBusy(false);
+    }
+  };
 
   const exportAll = async () => {
     const bundle = await createExport();
@@ -59,6 +93,83 @@ export function SettingsPage() {
   return (
     <Page title="Data transfer" subtitle="Move complete Forge backups between your devices.">
       <div className="settings-grid">
+        <Card>
+          <h2>Computer synchronization</h2>
+          {syncSettings ? (
+            <>
+              <p>
+                Connected as <b>{syncSettings.username}</b>
+                <br />
+                <span className="muted">{syncSettings.serverUrl}</span>
+              </p>
+              <p className="muted">
+                {syncSettings.lastSyncAt
+                  ? `Last synchronized ${new Date(syncSettings.lastSyncAt).toLocaleString()}`
+                  : 'Waiting for the first synchronization.'}
+                {syncSettings.lastError ? ` Last error: ${syncSettings.lastError}` : ''}
+              </p>
+              <button disabled={syncBusy} onClick={() => void synchronize()}>
+                {syncBusy ? 'Synchronizingâ€¦' : 'Sync now'}
+              </button>
+            </>
+          ) : (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void connect(false);
+              }}
+            >
+              <label>
+                Computer address
+                <input
+                  type="url"
+                  inputMode="url"
+                  required
+                  value={serverUrl}
+                  onChange={(event) => setServerUrl(event.target.value)}
+                />
+              </label>
+              <label>
+                Local username
+                <input
+                  required
+                  minLength={3}
+                  autoComplete="username"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  required
+                  minLength={12}
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </label>
+              <div className="actions">
+                <button disabled={syncBusy} type="submit">
+                  Sign in
+                </button>
+                <button
+                  disabled={syncBusy || username.trim().length < 3 || password.length < 12}
+                  type="button"
+                  onClick={() => void connect(true)}
+                >
+                  Create local account
+                </button>
+              </div>
+              <p className="muted">
+                This account exists only on your computer. Your password is used to sign in and is
+                not saved on this device.
+              </p>
+            </form>
+          )}
+        </Card>
+
         <Card>
           <h2>Download JSON backup</h2>
           <p>
@@ -122,8 +233,7 @@ export function SettingsPage() {
             Database schema <b>{SCHEMA_VERSION}</b>
           </p>
           <p className="muted">
-            Automatic synchronization and chat access are not active yet. Imports and exports are
-            always initiated by you.
+            Local computer synchronization runs while Forge is open. Chat access is not active yet.
           </p>
         </Card>
       </div>
