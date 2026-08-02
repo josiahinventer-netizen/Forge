@@ -65,6 +65,9 @@
 - [ ] One-time device pairing and recovery codes
 - [x] PWA local-account sign-in and IndexedDB push/pull integration
 - [x] Foreground automatic retry and visible sync status
+- [x] Immediate local-edit detection and authenticated server change notifications
+- [x] Preserve rejected conflicting record versions in the local SQLite archive
+- [ ] Conflict-history review and manual resolution UI
 - [ ] Encrypted automatic local backups
 - [ ] Permission-scoped chat API and audit log
 

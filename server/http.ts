@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
 import {
   createServer as createHttpServer,
   type IncomingMessage,
@@ -56,6 +57,8 @@ export function createForgeServer(options: ForgeServerOptions) {
     throw new Error('Both TLS certificate and key paths are required.');
   }
   const store = new ForgeSyncStore(options.databasePath);
+  const changes = new EventEmitter();
+  changes.setMaxListeners(100);
   const allowedOrigin = options.allowedOrigin ?? 'https://josiahinventer-netizen.github.io';
   const handleRequest = async (request: IncomingMessage, response: ServerResponse) => {
     const origin = request.headers.origin;
@@ -113,7 +116,9 @@ export function createForgeServer(options: ForgeServerOptions) {
           json(response, 400, { error: 'Changes are missing or invalid.' });
           return;
         }
-        json(response, 200, store.push(accountId, body.changes));
+        const result = store.push(accountId, body.changes);
+        if (result.accepted > 0) changes.emit(accountId);
+        json(response, 200, result);
         return;
       }
       if (request.method === 'GET' && url.pathname === '/api/sync/pull') {
@@ -123,6 +128,29 @@ export function createForgeServer(options: ForgeServerOptions) {
           return;
         }
         json(response, 200, store.pull(accountId, cursor));
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/sync/wait') {
+        const cursor = Number(url.searchParams.get('cursor') ?? '0');
+        if (!Number.isSafeInteger(cursor) || cursor < 0) {
+          json(response, 400, { error: 'Cursor must be a nonnegative integer.' });
+          return;
+        }
+        const changed = await new Promise<boolean>((resolve) => {
+          const finish = (value: boolean) => {
+            clearTimeout(timeout);
+            changes.off(accountId, onChange);
+            response.off('close', onClose);
+            resolve(value);
+          };
+          const onChange = () => finish(true);
+          const onClose = () => finish(false);
+          const timeout = setTimeout(() => finish(false), 20_000);
+          changes.once(accountId, onChange);
+          response.once('close', onClose);
+          if (store.pull(accountId, cursor).changes.length > 0) finish(true);
+        });
+        if (!response.writableEnded) json(response, 200, { changed });
         return;
       }
       json(response, 404, { error: 'Not found.' });

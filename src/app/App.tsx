@@ -7,27 +7,11 @@ import { ResourcesPage } from '../pages/ResourcesPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { SkillsPage } from '../pages/SkillsPage';
 import { db } from '../database/db';
-import { syncNow } from '../services/sync';
+import { startAutomaticSync } from '../services/sync';
 
 function AutomaticSync() {
   useEffect(() => {
-    let active = true;
-    const synchronize = async () => {
-      if (!active || !navigator.onLine || !(await db.syncSettings.get('primary'))) return;
-      try {
-        await syncNow();
-      } catch {
-        // The service records the visible error for Settings; offline use remains unaffected.
-      }
-    };
-    void synchronize();
-    const timer = window.setInterval(() => void synchronize(), 30_000);
-    window.addEventListener('online', synchronize);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-      window.removeEventListener('online', synchronize);
-    };
+    return startAutomaticSync(db);
   }, []);
   return null;
 }

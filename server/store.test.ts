@@ -92,10 +92,59 @@ describe('incremental account-isolated synchronization', () => {
 
     expect(duplicate).toMatchObject({ accepted: 0, ignored: 1, cursor: pushed.cursor });
     expect(stale).toMatchObject({ accepted: 0, ignored: 1, cursor: pushed.cursor });
+    expect(stale.conflictsPreserved).toBe(1);
+    expect(store.conflictCount(account.id)).toBe(1);
     expect(deletion.cursor).toBeGreaterThan(pushed.cursor);
     expect(store.pull(account.id, pushed.cursor).changes).toEqual([
       expect.objectContaining({ recordId: 'carpentry', deleted: true, payload: null }),
     ]);
+  });
+
+  it('notifies a waiting authenticated device when another device pushes a change', async () => {
+    const forgeServer = createForgeServer({
+      databasePath: ':memory:',
+      host: '127.0.0.1',
+      port: 0,
+    });
+    try {
+      const address = await forgeServer.start();
+      const baseUrl = `http://127.0.0.1:${address.port}`;
+      await fetch(`${baseUrl}/api/accounts`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username: 'waiting-user', password: 'long secure password' }),
+      });
+      const sessionResponse = await fetch(`${baseUrl}/api/sessions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username: 'waiting-user', password: 'long secure password' }),
+      });
+      const session = (await sessionResponse.json()) as { token: string };
+      const headers = {
+        authorization: `Bearer ${session.token}`,
+        'content-type': 'application/json',
+      };
+      const waiting = fetch(`${baseUrl}/api/sync/wait?cursor=0`, { headers });
+      await fetch(`${baseUrl}/api/sync/push`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          changes: [
+            {
+              entityType: 'resource',
+              recordId: 'saw',
+              updatedAt: '2026-08-02T13:00:00.000Z',
+              deleted: false,
+              payload: { id: 'saw', name: 'Circular saw' },
+            },
+          ],
+        }),
+      });
+
+      expect(await (await waiting).json()).toEqual({ changed: true });
+    } finally {
+      await forgeServer.stop();
+    }
   });
 
   it('validates sync changes before database access', () => {
