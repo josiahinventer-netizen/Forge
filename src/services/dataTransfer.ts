@@ -68,7 +68,25 @@ export function isResource(value: unknown): value is Resource {
     typeof value.unit === 'string' &&
     typeof value.condition === 'string' &&
     typeof value.location === 'string' &&
-    typeof value.notes === 'string'
+    typeof value.notes === 'string' &&
+    (value.resourceClass === undefined ||
+      ['Durable asset', 'Consumable', 'Software', 'Service', 'Workspace', 'Document'].includes(
+        String(value.resourceClass),
+      )) &&
+    (value.manufacturer === undefined || typeof value.manufacturer === 'string') &&
+    (value.model === undefined || typeof value.model === 'string') &&
+    (value.serialNumber === undefined || typeof value.serialNumber === 'string') &&
+    (value.currency === undefined || typeof value.currency === 'string') &&
+    (value.verificationStatus === undefined ||
+      [
+        'Confirmed',
+        'Document-supported',
+        'Activity-supported',
+        'Inferred',
+        'Needs review',
+      ].includes(String(value.verificationStatus))) &&
+    (value.evidenceNotes === undefined || typeof value.evidenceNotes === 'string') &&
+    (value.photoDataUrls === undefined || isStringArray(value.photoDataUrls))
   );
 }
 

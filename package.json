@@ -10,6 +10,7 @@
     "server:start": "tsx server/index.ts",
     "server:lan": "tsx server/lan.ts",
     "mcp:start": "tsx server/mcp.ts",
+    "drive:sync": "tsx server/drive.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",

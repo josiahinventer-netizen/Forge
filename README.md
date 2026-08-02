@@ -9,6 +9,7 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Skill creation, editing, viewing, search, and archiving
 - Separate knowledge and practical skill levels
 - Resource creation, editing, viewing, search, quantity/location tracking, and archiving
+- Resource intelligence for durable assets and consumables, including manufacturer, model, serial number, lifecycle, maintenance, value, verification status, and evidence notes
 - Capability creation, editing, detail viewing, search, and archiving
 - Skill requirements with separate minimum knowledge and practical levels
 - Resource requirements with quantities and units
@@ -58,7 +59,32 @@ The server creates `%LOCALAPPDATA%\Forge\forge-sync.sqlite` on Windows, outside 
 - Preserved stale or same-time conflicting versions in the local `sync_conflicts` archive
 - A strict GitHub Pages origin allowlist
 
-No personal records are stored on GitHub or a third-party data service. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge asks browsers not to save or autofill the local-account password; browser password managers remain separately controlled by the user. Forge still needs recovery codes, encrypted automatic backups, and a permission-scoped chat API. Do not expose port `8787` through a router or firewall.
+No personal records are stored on GitHub. Google Drive archive mirroring is optional and is enabled on this computer to provide an off-device backup and a ChatGPT-readable bridge; the local SQLite database remains authoritative. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge asks browsers not to save or autofill the local-account password; browser password managers remain separately controlled by the user. Forge still needs recovery codes, encrypted automatic backups, and backup-retention controls. Do not expose port `8787` through a router or firewall.
+
+## Google Drive and ChatGPT bridge
+
+When Google Drive for desktop is mounted, the encrypted LAN server also checks the configured Forge Drive folder every 10 seconds. The default Windows folder is `G:\My Drive\Forge`; set `FORGE_DRIVE_DIR` to override it and `FORGE_DRIVE_USERNAME` to select a different local Forge account.
+
+The bridge creates:
+
+- `Forge Archive.json` — the current versioned, human-readable archive, including archived records and deletion tombstones.
+- `Backups/` — timestamped snapshots created whenever the record set changes or the bridge restarts.
+- `Excel/` — separate skills, resources, and capabilities CSV files for local Excel access.
+- `CHATGPT-FORGE-INSTRUCTIONS.md` and `Forge Inbox Example.json` — instructions and a request template for ChatGPT.
+- `Inbox/` — proposed `forge-request-*.json` files awaiting validation.
+- `Processed/` and `Rejected/` — original requests plus machine-readable receipts or errors.
+
+ChatGPT must create a new request file rather than edit `Forge Archive.json`. The inbox accepts only version 1 `save` operations for skills, resources, and capabilities. It validates field types, skill levels, quantities, and linked capability requirements before writing. It has no delete operation; records can be archived with `archived: true`. Stable request IDs are stored in SQLite so retries and duplicate uploads cannot apply the same request twice. Accepted writes use the normal sync store, appear on other Forge devices through the existing synchronization protocol, and are recorded in the AI audit log.
+
+A clear conversational command such as “add DeWalt reciprocating saw to my tools in Forge” authorizes that non-destructive creation without a second confirmation. ChatGPT should correct obvious spelling and capitalization, check for duplicates, and use conservative defaults without inventing experience or condition. Ambiguous requests, changes to existing records, and archiving still require clarification or confirmation.
+
+Run one synchronization pass manually with:
+
+```bash
+npm run drive:sync
+```
+
+Google Drive is a replicated backup and ChatGPT bridge, not Forge's only copy. If Drive is unavailable, the PWA and local SQLite synchronization continue to work; Drive processing resumes when the mounted folder returns.
 
 ## Publish as an HTTPS PWA
 
@@ -160,4 +186,4 @@ Imports are parsed and fully validated before any IndexedDB write. This remains 
 - `src/tests` — database, migration, and export tests
 
 Current app version: **1.0.0**  
-Current database schema version: **3**
+Current database schema version: **5**

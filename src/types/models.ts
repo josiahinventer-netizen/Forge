@@ -30,7 +30,43 @@ export interface Resource extends BaseRecord {
   condition: string;
   location: string;
   notes: string;
+  resourceClass?: ResourceClass;
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  manufacturedAt?: string;
+  acquiredAt?: string;
+  expectedLifeMonths?: number;
+  expiresAt?: string;
+  maintenanceIntervalDays?: number;
+  lastMaintainedAt?: string;
+  replacementValue?: number;
+  currency?: string;
+  verificationStatus?: VerificationStatus;
+  evidenceNotes?: string;
+  photoDataUrls?: string[];
 }
+
+export type ResourceClass =
+  'Durable asset' | 'Consumable' | 'Software' | 'Service' | 'Workspace' | 'Document';
+export type VerificationStatus =
+  'Confirmed' | 'Document-supported' | 'Activity-supported' | 'Inferred' | 'Needs review';
+
+export const RESOURCE_CLASSES: readonly ResourceClass[] = [
+  'Durable asset',
+  'Consumable',
+  'Software',
+  'Service',
+  'Workspace',
+  'Document',
+];
+export const VERIFICATION_STATUSES: readonly VerificationStatus[] = [
+  'Confirmed',
+  'Document-supported',
+  'Activity-supported',
+  'Inferred',
+  'Needs review',
+];
 
 export interface CapabilitySkillRequirement {
   skillId: string;

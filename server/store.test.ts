@@ -15,6 +15,18 @@ afterEach(() => {
 });
 
 describe('ForgeSyncStore accounts', () => {
+  it('migrates the local server database through Drive inbox schema version 4', () => {
+    const store = makeStore();
+    expect(store.database.pragma('user_version', { simple: true })).toBe(4);
+    expect(
+      store.database
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'drive_inbox_receipts'",
+        )
+        .get(),
+    ).toBeTruthy();
+  });
+
   it('creates separate accounts and authenticates expiring device sessions', async () => {
     const store = makeStore();
     const first = await store.createAccount('Josiah', 'long secure password');
