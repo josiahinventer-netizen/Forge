@@ -87,7 +87,7 @@ Fix all failures before reporting completion. Do not describe a task as complete
 - `npm run build` — run the TypeScript project build and create the Vite production bundle.
 - `npm run preview` — serve the production build locally for inspection.
 - `npm run server:start` — run the localhost-only Forge Sync Server and local SQLite database.
-- `npm run server:lan` — run the TLS-configured LAN server using ignored certificates under `data/certs`; never use it before device trust is configured.
+- `npm run server:lan` — run the TLS-configured LAN server using certificates under the local Forge application-data directory; never use it before device trust is configured.
 - `npm test` — run the Vitest suite once.
 - `npm run test:watch` — run Vitest in watch mode during development.
 - `npm run lint` — run ESLint across the repository.

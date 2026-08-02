@@ -1,13 +1,13 @@
-import { resolve } from 'node:path';
 import { createForgeServer } from './http.js';
+import { forgeCertificateKeyPath, forgeCertificatePath, forgeDatabasePath } from './paths.js';
 
 const forgeServer = createForgeServer({
-  databasePath: resolve('data/forge-sync.sqlite'),
+  databasePath: forgeDatabasePath,
   host: '0.0.0.0',
   port: 8787,
   allowedOrigin: 'https://josiahinventer-netizen.github.io',
-  tlsCertificatePath: resolve('data/certs/forge-local.pem'),
-  tlsKeyPath: resolve('data/certs/forge-local-key.pem'),
+  tlsCertificatePath: forgeCertificatePath,
+  tlsKeyPath: forgeCertificateKeyPath,
 });
 
 const address = await forgeServer.start();

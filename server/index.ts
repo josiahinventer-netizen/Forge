@@ -1,9 +1,9 @@
-import { resolve } from 'node:path';
 import { createForgeServer } from './http.js';
+import { forgeDatabasePath } from './paths.js';
 
 const host = process.env.FORGE_SERVER_HOST ?? '127.0.0.1';
 const port = Number(process.env.FORGE_SERVER_PORT ?? '8787');
-const databasePath = resolve(process.env.FORGE_SERVER_DATA ?? 'data/forge-sync.sqlite');
+const databasePath = process.env.FORGE_SERVER_DATA ?? forgeDatabasePath;
 const allowedOrigin =
   process.env.FORGE_ALLOWED_ORIGIN ?? 'https://josiahinventer-netizen.github.io';
 const tlsCertificatePath = process.env.FORGE_TLS_CERT;

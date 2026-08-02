@@ -46,9 +46,9 @@ Start it with:
 npm run server:start
 ```
 
-After generating trusted local certificates under `data/certs`, encrypted LAN mode can be started with `npm run server:lan`. The current development certificate covers this computer at `192.168.0.187` and `DESKTOP-4712NEU`. The LAN command refuses to start if its certificate or key is missing. The public certificate authority is available locally at `data/certs/rootCA.pem` for installation on trusted devices; its private key must never leave the computer. Never forward port `8787` through the router.
+After generating trusted local certificates under `%LOCALAPPDATA%\Forge\certs`, encrypted LAN mode can be started with `npm run server:lan`. The current development certificate covers this computer at `192.168.0.187` and `DESKTOP-4712NEU`. The LAN command refuses to start if its certificate or key is missing. The public certificate authority is available locally at `%LOCALAPPDATA%\Forge\certs\rootCA.pem` for installation on trusted devices; its private key must never leave the computer. Never forward port `8787` through the router.
 
-The server creates `data/forge-sync.sqlite`, which is ignored by Git. It provides:
+The server creates `%LOCALAPPDATA%\Forge\forge-sync.sqlite` on Windows, outside the repository and its OneDrive folder. `FORGE_DATA_DIR` can override the application-data directory. It provides:
 
 - Multiple isolated local accounts
 - Scrypt-hashed passwords and hashed 30-day device sessions
