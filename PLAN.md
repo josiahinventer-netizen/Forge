@@ -89,6 +89,8 @@
 - [x] Recurring task occurrences that retain completion history
 - [x] Opt-in best-effort OS notifications with clear Android suspension limitations
 - [x] Browser speech dictation for fast todo title, purpose, and detail entry
+- [x] Persistent reminder detection with acknowledge, ten-minute snooze, and complete actions
+- [x] Synchronized reminder history so missed reminders survive app restarts
 
 ## Stage 4 — User-owned sync server foundation (in progress)
 

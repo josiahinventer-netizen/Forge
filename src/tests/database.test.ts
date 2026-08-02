@@ -24,6 +24,7 @@ describe('ForgeDatabase', () => {
       'activities',
       'attachments',
       'capabilities',
+      'reminderEvents',
       'resources',
       'skills',
       'syncSettings',
@@ -215,6 +216,7 @@ describe('ForgeDatabase', () => {
       'activities',
       'attachments',
       'capabilities',
+      'reminderEvents',
       'resources',
       'skills',
       'syncSettings',
@@ -226,5 +228,6 @@ describe('ForgeDatabase', () => {
     expect(await migrated.activities.count()).toBe(0);
     expect(await migrated.todos.count()).toBe(0);
     expect(await migrated.todoOccurrences.count()).toBe(0);
+    expect(await migrated.reminderEvents.count()).toBe(0);
   });
 });

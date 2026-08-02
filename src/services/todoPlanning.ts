@@ -5,8 +5,9 @@ export type TodoTiming = 'Overdue' | 'Reminder due' | 'Upcoming' | 'Unscheduled'
 export function todoTiming(todo: Todo, at = new Date()): TodoTiming {
   if (todo.status === 'Completed') return 'Completed';
   const now = at.getTime();
+  if (todo.snoozedUntil && Date.parse(todo.snoozedUntil) > now) return 'Upcoming';
   if (todo.dueAt && Date.parse(todo.dueAt) < now) return 'Overdue';
-  const target = todo.scheduledFor ?? todo.dueAt;
+  const target = todo.snoozedUntil ?? todo.scheduledFor ?? todo.dueAt;
   if (!target) return 'Unscheduled';
   const reminderAt = Date.parse(target) - (todo.reminderMinutesBefore ?? 0) * 60_000;
   return reminderAt <= now ? 'Reminder due' : 'Upcoming';
@@ -28,8 +29,8 @@ export function orderedTodos(todos: Todo[], at = new Date()) {
     const priority = priorityWeight[a.priority] - priorityWeight[b.priority];
     if (priority) return priority;
     return (
-      Date.parse(a.scheduledFor ?? a.dueAt ?? '9999-12-31') -
-      Date.parse(b.scheduledFor ?? b.dueAt ?? '9999-12-31')
+      Date.parse(a.snoozedUntil ?? a.scheduledFor ?? a.dueAt ?? '9999-12-31') -
+      Date.parse(b.snoozedUntil ?? b.scheduledFor ?? b.dueAt ?? '9999-12-31')
     );
   });
 }

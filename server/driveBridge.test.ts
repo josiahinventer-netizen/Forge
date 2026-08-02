@@ -55,6 +55,18 @@ describe('Drive archive', () => {
             dataUrl: 'data:image/jpeg;base64,YWJj',
           },
         },
+        {
+          entityType: 'reminderEvent',
+          recordId: 'reminder-1',
+          updatedAt: '2026-08-02T02:45:00.000Z',
+          deleted: false,
+          payload: {
+            id: 'reminder-1',
+            todoId: 'todo-1',
+            title: 'Check tool',
+            action: 'Acknowledged',
+          },
+        },
       ],
       '2026-08-02T03:00:00.000Z',
     );
@@ -63,6 +75,7 @@ describe('Drive archive', () => {
     expect(archive.records.skills[0]?.archived).toBe(true);
     expect(archive.records.attachments[0]?.driveFile).toBe('Evidence/activity-photo.jpg');
     expect('dataUrl' in (archive.records.attachments[0] ?? {})).toBe(false);
+    expect(archive.records.reminderEvents[0]?.action).toBe('Acknowledged');
     expect(archive.deletedRecords).toEqual([
       { entityType: 'resource', recordId: 'old', updatedAt: '2026-08-02T02:00:00.000Z' },
     ]);

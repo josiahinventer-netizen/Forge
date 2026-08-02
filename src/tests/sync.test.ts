@@ -127,6 +127,18 @@ describe('device synchronization', () => {
       tags: [],
       archived: false,
     };
+    const reminderEvent = {
+      id: 'reminder-1',
+      todoId: 'routine',
+      occurrenceKey: 'routine:2026-02-03',
+      title: 'Routine',
+      purpose: 'Consistency',
+      detectedAt: '2026-02-03T00:00:00.000Z',
+      createdAt: '2026-02-03T00:00:00.000Z',
+      updatedAt: '2026-02-03T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    };
     await database.skills.put(local);
     await database.syncSettings.put({
       id: 'primary',
@@ -176,21 +188,30 @@ describe('device synchronization', () => {
               deleted: false,
               payload: occurrence,
             },
+            {
+              revision: 10,
+              entityType: 'reminderEvent',
+              recordId: reminderEvent.id,
+              updatedAt: reminderEvent.updatedAt,
+              deleted: false,
+              payload: reminderEvent,
+            },
           ],
-          cursor: 9,
+          cursor: 10,
         }),
       );
 
     const result = await syncNow(database, fetcher);
 
-    expect(result).toEqual({ pushed: 1, pulled: 4 });
+    expect(result).toEqual({ pushed: 1, pulled: 5 });
     expect((await database.skills.get('carpentry'))?.practicalLevel).toBe(3);
-    expect((await database.syncSettings.get('primary'))?.cursor).toBe(9);
+    expect((await database.syncSettings.get('primary'))?.cursor).toBe(10);
     expect((await database.attachments.get('photo-1'))?.ownerId).toBe('carpentry');
     expect((await database.activities.get('activity-1'))?.skillPractice[0]?.kind).toBe(
       'Troubleshooting',
     );
     expect((await database.todoOccurrences.get('occurrence-1'))?.todoId).toBe('routine');
+    expect((await database.reminderEvents.get('reminder-1'))?.purpose).toBe('Consistency');
     expect(fetcher.mock.calls[1]?.[0]).toBe('https://computer.local:8787/api/sync/pull?cursor=0');
     const pushedBody = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
       changes: Array<{ recordId: string }>;

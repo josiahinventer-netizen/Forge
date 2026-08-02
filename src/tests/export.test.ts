@@ -129,6 +129,20 @@ describe('JSON export', () => {
       tags: [],
       archived: false,
     });
+    await database.reminderEvents.put({
+      id: 'reminder',
+      todoId: 'todo',
+      occurrenceKey: 'todo:2026-01-02',
+      title: 'Build practice joint',
+      purpose: 'Practice carpentry',
+      detectedAt: '2026-01-02',
+      acknowledgedAt: '2026-01-02',
+      action: 'Completed',
+      createdAt: '2026-01-02',
+      updatedAt: '2026-01-02',
+      tags: [],
+      archived: false,
+    });
 
     const bundle = await createExport(database);
     const parsed = JSON.parse(JSON.stringify(bundle)) as typeof bundle;
@@ -144,5 +158,6 @@ describe('JSON export', () => {
     expect(parsed.records.todos?.[0]?.purpose).toBe('Practice carpentry');
     expect(parsed.records.activities?.[0]?.skillPractice[0]?.skillId).toBe('active');
     expect(parsed.records.todoOccurrences?.[0]?.todoId).toBe('todo');
+    expect(parsed.records.reminderEvents?.[0]?.action).toBe('Completed');
   });
 });

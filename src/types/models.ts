@@ -91,6 +91,22 @@ export interface Todo extends BaseRecord {
   completionNotes: string;
   completedAt?: string;
   recurrence?: TodoRecurrence;
+  snoozedUntil?: string;
+}
+
+export type ReminderAction = 'Acknowledged' | 'Snoozed' | 'Completed';
+
+export interface ReminderEvent extends BaseRecord {
+  todoId: string;
+  occurrenceKey: string;
+  title: string;
+  purpose: string;
+  scheduledFor?: string;
+  dueAt?: string;
+  detectedAt: string;
+  acknowledgedAt?: string;
+  action?: ReminderAction;
+  snoozedUntil?: string;
 }
 
 export interface TodoOccurrence extends BaseRecord {
@@ -213,6 +229,7 @@ export interface ExportBundle {
     todos?: Todo[];
     activities?: Activity[];
     todoOccurrences?: TodoOccurrence[];
+    reminderEvents?: ReminderEvent[];
   };
 }
 
