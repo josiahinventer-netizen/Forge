@@ -50,11 +50,11 @@
 - [x] Dashboard activity count and closest-capability explanations
 - [x] Dexie schema 8 migration, device sync, JSON export, and Drive archive/CSV
 - [ ] Evidence history with multiple attributed document sources
-- [ ] Weekly summaries and guided level-review suggestions
+- [x] Explainable seven-day summaries and guided manual level-review suggestions
 
 ## Later stages (not started)
 
-1. Activity timeline and weekly summaries
+1. Longer-term activity trends and selectable review periods
 2. Bored Mode recommendation engine
 3. Knowledge entries and evidence-aware progression scoring
 4. Onboarding, themes, and safe local-data clearing
@@ -73,7 +73,7 @@
 - [x] Reusable typed photo evidence with source notes and verification status for resources, skills, and activities
 - [x] Per-record hash deduplication, galleries, and confirmed evidence archiving
 - [ ] Non-image evidence history with multiple attributed document sources
-- [ ] Explainable suggested capability connections
+- [x] Explainable capability-work connections based only on explicitly linked activities
 
 ## Stage 6 — Purpose-aware todos (foundation complete)
 

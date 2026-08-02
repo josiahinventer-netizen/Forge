@@ -764,6 +764,27 @@ form > button:last-child {
   color: var(--muted);
   grid-column: 1 / -1;
 }
+.weekly-review {
+  grid-column: 1 / -1;
+}
+.review-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0.8rem 0 1rem;
+}
+.review-stats span {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  padding: 0.7rem;
+  color: var(--muted);
+}
+.review-stats b {
+  display: block;
+  color: var(--text);
+  font-size: 1.25rem;
+}
 @media (max-width: 850px) {
   aside {
     display: none;
@@ -829,6 +850,9 @@ form > button:last-child {
 @media (max-width: 520px) {
   .speech-input {
     grid-template-columns: 1fr;
+  }
+  .review-stats {
+    grid-template-columns: 1fr 1fr;
   }
   .form-grid,
   .toolbar {
