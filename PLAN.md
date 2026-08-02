@@ -84,8 +84,9 @@
 - [x] Visible in-app reminder while Forge is open
 - [x] Dashboard open and overdue counts
 - [x] Dexie schema 7 migration, device sync, JSON export, Drive archive/CSV, and AI tools
-- [ ] Recurring task occurrences that retain completion history
-- [ ] Best-effort OS notifications with clear Android suspension limitations
+- [x] Recurring task occurrences that retain completion history
+- [x] Opt-in best-effort OS notifications with clear Android suspension limitations
+- [x] Browser speech dictation for fast todo title, purpose, and detail entry
 
 ## Stage 4 — User-owned sync server foundation (in progress)
 

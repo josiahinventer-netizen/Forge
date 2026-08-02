@@ -115,6 +115,18 @@ describe('device synchronization', () => {
       tags: [],
       archived: false,
     };
+    const occurrence = {
+      id: 'occurrence-1',
+      todoId: 'routine',
+      title: 'Routine',
+      purpose: 'Consistency',
+      completedAt: '2026-02-03T00:00:00.000Z',
+      completionNotes: 'Done',
+      createdAt: '2026-02-03T00:00:00.000Z',
+      updatedAt: '2026-02-03T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    };
     await database.skills.put(local);
     await database.syncSettings.put({
       id: 'primary',
@@ -156,20 +168,29 @@ describe('device synchronization', () => {
               deleted: false,
               payload: activity,
             },
+            {
+              revision: 9,
+              entityType: 'todoOccurrence',
+              recordId: occurrence.id,
+              updatedAt: occurrence.updatedAt,
+              deleted: false,
+              payload: occurrence,
+            },
           ],
-          cursor: 8,
+          cursor: 9,
         }),
       );
 
     const result = await syncNow(database, fetcher);
 
-    expect(result).toEqual({ pushed: 1, pulled: 3 });
+    expect(result).toEqual({ pushed: 1, pulled: 4 });
     expect((await database.skills.get('carpentry'))?.practicalLevel).toBe(3);
-    expect((await database.syncSettings.get('primary'))?.cursor).toBe(8);
+    expect((await database.syncSettings.get('primary'))?.cursor).toBe(9);
     expect((await database.attachments.get('photo-1'))?.ownerId).toBe('carpentry');
     expect((await database.activities.get('activity-1'))?.skillPractice[0]?.kind).toBe(
       'Troubleshooting',
     );
+    expect((await database.todoOccurrences.get('occurrence-1'))?.todoId).toBe('routine');
     expect(fetcher.mock.calls[1]?.[0]).toBe('https://computer.local:8787/api/sync/pull?cursor=0');
     const pushedBody = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
       changes: Array<{ recordId: string }>;

@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { baseRecord, db, now } from '../database/db';
-import type { Todo, TodoPriority, TodoStatus } from '../types/models';
+import type { RecurrenceFrequency, Todo, TodoPriority, TodoStatus } from '../types/models';
 import { TODO_PRIORITIES } from '../types/models';
 import { orderedTodos, todoTiming } from '../services/todoPlanning';
 import { Card, Empty, Field, Modal, Page, formatDate } from '../components/UI';
+import { SpeechInput } from '../components/SpeechInput';
+import { completeTodo } from '../services/todoOperations';
+import {
+  disableNotifications,
+  enableNotifications,
+  notificationsEnabled,
+  notificationsSupported,
+} from '../services/notifications';
 
 const emptyTodo = (): Todo => ({
   ...baseRecord(),
@@ -25,9 +33,22 @@ const localInput = (value?: string) => {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 };
 const isoInput = (value: string) => (value ? new Date(value).toISOString() : undefined);
+const recurrenceText = (todo: Todo) => {
+  if (!todo.recurrence) return '';
+  if (todo.recurrence.interval === 1) return `Repeats ${todo.recurrence.frequency.toLowerCase()}`;
+  const unit =
+    todo.recurrence.frequency === 'Daily'
+      ? 'days'
+      : todo.recurrence.frequency === 'Weekly'
+        ? 'weeks'
+        : 'months';
+  return `Repeats every ${todo.recurrence.interval} ${unit}`;
+};
 
 export function TodosPage() {
   const todos = useLiveQuery(() => db.todos.filter((todo) => !todo.archived).toArray(), []) ?? [];
+  const occurrences =
+    useLiveQuery(() => db.todoOccurrences.orderBy('completedAt').reverse().toArray(), []) ?? [];
   const links = useLiveQuery(
     async () => ({
       skills: await db.skills.filter((item) => !item.archived).toArray(),
@@ -39,6 +60,8 @@ export function TodosPage() {
   const [edit, setEdit] = useState<Todo | null>(null);
   const [query, setQuery] = useState('');
   const [showCompleted, setShowCompleted] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [notificationsOn, setNotificationsOn] = useState(notificationsEnabled());
   const shown = orderedTodos(todos).filter(
     (todo) =>
       (showCompleted || todo.status !== 'Completed') &&
@@ -80,6 +103,32 @@ export function TodosPage() {
           Show completed
         </label>
       </div>
+      <Card className="notification-settings">
+        <div className="row">
+          <div>
+            <strong>Reminder notifications</strong>
+            <p className="muted">
+              Forge can notify you when a reminder is due while the installed app is running or
+              allowed to work. Android can still suspend closed web apps.
+            </p>
+          </div>
+          {notificationsSupported() ? (
+            <button
+              className="secondary"
+              onClick={async () => {
+                if (notificationsOn) {
+                  disableNotifications();
+                  setNotificationsOn(false);
+                } else setNotificationsOn(await enableNotifications());
+              }}
+            >
+              {notificationsOn ? 'Turn off' : 'Enable notifications'}
+            </button>
+          ) : (
+            <span className="muted">Not supported here</span>
+          )}
+        </div>
+      </Card>
       {shown.length ? (
         <div className="list">
           {shown.map((todo) => {
@@ -104,6 +153,7 @@ export function TodosPage() {
                         : 'Unscheduled'}
                       {todo.dueAt ? ` · Due ${formatDate(todo.dueAt)}` : ''}
                       {todo.estimatedMinutes ? ` · ${todo.estimatedMinutes} min` : ''}
+                      {todo.recurrence ? ` · ${recurrenceText(todo)}` : ''}
                     </p>
                   </div>
                   <div className="actions vertical">
@@ -113,12 +163,7 @@ export function TodosPage() {
                     {todo.status !== 'Completed' && (
                       <button
                         onClick={async () => {
-                          const timestamp = now();
-                          await db.todos.update(todo.id, {
-                            status: 'Completed',
-                            completedAt: timestamp,
-                            updatedAt: timestamp,
-                          });
+                          await completeTodo(todo.id);
                         }}
                       >
                         Complete
@@ -133,11 +178,39 @@ export function TodosPage() {
       ) : (
         <Empty>Add something meaningful you want to accomplish.</Empty>
       )}
+      {occurrences.length > 0 && (
+        <Card>
+          <div className="row">
+            <div>
+              <h2>Recurring completion history</h2>
+              <p className="muted">Every completed occurrence is preserved.</p>
+            </div>
+            <button className="secondary" onClick={() => setShowHistory((value) => !value)}>
+              {showHistory ? 'Hide history' : `Show ${occurrences.length}`}
+            </button>
+          </div>
+          {showHistory && (
+            <div className="history-list">
+              {occurrences.map((item) => (
+                <div key={item.id}>
+                  <strong>{item.title}</strong>
+                  <span>{new Date(item.completedAt).toLocaleString()}</span>
+                  <small>{item.purpose}</small>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
       {edit && (
         <Modal title={edit.title ? 'Edit todo' : 'Add todo'} onClose={() => setEdit(null)}>
           <form
             onSubmit={async (event) => {
               event.preventDefault();
+              if (edit.recurrence && !edit.scheduledFor && !edit.dueAt) {
+                alert('Choose a scheduled start or due time for a repeating todo.');
+                return;
+              }
               await db.todos.put({
                 ...edit,
                 updatedAt: now(),
@@ -147,25 +220,26 @@ export function TodosPage() {
             }}
           >
             <Field label="What needs doing?">
-              <input
+              <SpeechInput
                 required
-                autoFocus
                 value={edit.title}
-                onChange={(event) => setEdit({ ...edit, title: event.target.value })}
+                onChange={(title) => setEdit({ ...edit, title })}
               />
             </Field>
             <Field label="Why am I doing this?">
-              <textarea
+              <SpeechInput
+                multiline
                 required
                 value={edit.purpose}
-                onChange={(event) => setEdit({ ...edit, purpose: event.target.value })}
+                onChange={(purpose) => setEdit({ ...edit, purpose })}
                 placeholder="Connect this task to a goal, responsibility, person, or capability."
               />
             </Field>
             <Field label="Details">
-              <textarea
+              <SpeechInput
+                multiline
                 value={edit.description}
-                onChange={(event) => setEdit({ ...edit, description: event.target.value })}
+                onChange={(description) => setEdit({ ...edit, description })}
               />
             </Field>
             <div className="form-grid">
@@ -238,6 +312,59 @@ export function TodosPage() {
                 />
               </Field>
             </div>
+            <fieldset>
+              <legend>Repeat</legend>
+              <div className="form-grid">
+                <Field label="Frequency">
+                  <select
+                    value={edit.recurrence?.frequency ?? 'Never'}
+                    onChange={(event) =>
+                      setEdit({
+                        ...edit,
+                        recurrence:
+                          event.target.value === 'Never'
+                            ? undefined
+                            : {
+                                frequency: event.target.value as RecurrenceFrequency,
+                                interval: edit.recurrence?.interval ?? 1,
+                              },
+                      })
+                    }
+                  >
+                    <option>Never</option>
+                    <option>Daily</option>
+                    <option>Weekly</option>
+                    <option>Monthly</option>
+                  </select>
+                </Field>
+                {edit.recurrence && (
+                  <Field
+                    label={`Every how many ${edit.recurrence.frequency.toLowerCase()} periods?`}
+                  >
+                    <input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={edit.recurrence.interval}
+                      onChange={(event) =>
+                        setEdit({
+                          ...edit,
+                          recurrence: {
+                            ...edit.recurrence!,
+                            interval: Math.max(1, Number(event.target.value)),
+                          },
+                        })
+                      }
+                    />
+                  </Field>
+                )}
+              </div>
+              {edit.recurrence && !edit.scheduledFor && !edit.dueAt && (
+                <p className="validation-errors">
+                  A repeating todo needs a scheduled start or due time.
+                </p>
+              )}
+            </fieldset>
             <fieldset>
               <legend>Connected records</legend>
               {(

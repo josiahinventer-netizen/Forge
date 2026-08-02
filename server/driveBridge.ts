@@ -103,6 +103,12 @@ const todoOperation = z.object({
     linkedResourceIds: z.array(z.string()).optional(),
     linkedCapabilityIds: z.array(z.string()).optional(),
     completionNotes: z.string().optional(),
+    recurrence: z
+      .object({
+        frequency: z.enum(['Daily', 'Weekly', 'Monthly']),
+        interval: z.number().int().min(1).max(365),
+      })
+      .optional(),
   }),
 });
 const activityOperation = z.object({
@@ -218,6 +224,7 @@ const defaults: Record<SyncEntityType, Record<string, unknown>> = {
     linkedCapabilityIds: [],
     linkedTodoIds: [],
   },
+  todoOccurrence: {},
 };
 
 const payload = (record: ArchiveRecord | null) => record?.payload ?? null;
@@ -262,6 +269,9 @@ export function createDriveArchive(
       activities: live
         .filter((record) => record.entityType === 'activity')
         .map((record) => record.payload),
+      todoOccurrences: live
+        .filter((record) => record.entityType === 'todoOccurrence')
+        .map((record) => record.payload),
     },
     deletedRecords: records
       .filter((record) => record.deleted)
@@ -275,6 +285,7 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
   const capabilities = archive.records.capabilities;
   const todos = archive.records.todos;
   const activities = archive.records.activities;
+  const todoOccurrences = archive.records.todoOccurrences;
   return {
     'Forge Skills.csv': csv(
       [
@@ -400,6 +411,28 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         JSON.stringify(item?.skillPractice ?? []),
         item?.archived,
         item?.updatedAt,
+      ]),
+    ),
+    'Forge Todo History.csv': csv(
+      [
+        'id',
+        'todoId',
+        'title',
+        'purpose',
+        'scheduledFor',
+        'dueAt',
+        'completedAt',
+        'completionNotes',
+      ],
+      todoOccurrences.map((item) => [
+        item?.id,
+        item?.todoId,
+        item?.title,
+        item?.purpose,
+        item?.scheduledFor,
+        item?.dueAt,
+        item?.completedAt,
+        item?.completionNotes,
       ]),
     ),
   };

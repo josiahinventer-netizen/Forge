@@ -27,6 +27,7 @@ describe('ForgeDatabase', () => {
       'resources',
       'skills',
       'syncSettings',
+      'todoOccurrences',
       'todos',
     ]);
   });
@@ -197,11 +198,13 @@ describe('ForgeDatabase', () => {
       'resources',
       'skills',
       'syncSettings',
+      'todoOccurrences',
       'todos',
     ]);
     expect(await migrated.capabilities.count()).toBe(0);
     expect(await migrated.attachments.count()).toBe(0);
     expect(await migrated.activities.count()).toBe(0);
     expect(await migrated.todos.count()).toBe(0);
+    expect(await migrated.todoOccurrences.count()).toBe(0);
   });
 });

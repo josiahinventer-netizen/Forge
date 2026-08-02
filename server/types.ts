@@ -5,6 +5,7 @@ export const SYNC_ENTITY_TYPES = [
   'attachment',
   'todo',
   'activity',
+  'todoOccurrence',
 ] as const;
 export type SyncEntityType = (typeof SYNC_ENTITY_TYPES)[number];
 
