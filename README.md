@@ -17,9 +17,10 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Dashboard capability counts derived from current records
 - Versioned Dexie schema with tested migrations through schema version 3
 - JSON export containing app/schema metadata plus active and archived records
+- Validated JSON import with conflict-safe merge and explicitly confirmed replacement
 - PWA manifest, service worker, application-shell caching, and offline indicator
 
-Actions, Bored Mode, health tracking, civilization scoring, AI, server synchronization, knowledge entries, onboarding, and JSON import are not implemented. See [PLAN.md](./PLAN.md) for staged work.
+Actions, Bored Mode, health tracking, civilization scoring, AI, automatic server synchronization, knowledge entries, and onboarding are not implemented. See [PLAN.md](./PLAN.md) for staged work.
 
 ## Run locally
 
@@ -81,7 +82,17 @@ All records are stored locally using Dexie and IndexedDB. Use **Data → Export 
 - All resource records
 - All capability records
 
-Import and synchronization are deliberately deferred. Exported data is not sent anywhere by Forge.
+Automatic synchronization is deliberately deferred. Exported and imported files are never sent anywhere by Forge.
+
+### Move data between phone and computer
+
+1. On the source device, open **Data → Export all data**.
+2. Save or share the JSON file through a location you control, such as OneDrive or USB.
+3. On the destination device, open **Data → Import JSON backup** and select the file.
+4. Choose **Merge with this device** to retain unique records from both devices. When IDs match, Forge keeps the record with the newest `updatedAt` timestamp.
+5. Use **Replace this device** only when the selected backup should become the complete local database; Forge asks for confirmation immediately before replacement.
+
+Imports are parsed and fully validated before any IndexedDB write. This is manual device transfer, not automatic synchronization.
 
 ## Manual smoke checklist
 
@@ -94,6 +105,8 @@ Import and synchronization are deliberately deferred. Exported data is not sent 
 - Change a linked skill level or resource quantity and confirm capability status updates.
 - Archive a required skill or resource and confirm the capability explains the shortfall.
 - Export JSON and confirm active and archived skills, resources, and capabilities are present.
+- Import that file using Merge and confirm records are not duplicated.
+- Select Replace, cancel the confirmation, and confirm local records remain unchanged.
 - At a narrow viewport, verify all five destinations appear in the bottom navigation.
 - Build and serve the production app, go offline, reload, and verify the shell opens.
 

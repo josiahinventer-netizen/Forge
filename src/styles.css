@@ -591,6 +591,30 @@ form > button:last-child {
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
+.file-input {
+  margin: 0.5rem 0 1rem;
+}
+.import-preview,
+.validation-errors {
+  background: var(--panel2);
+  border-radius: 7px;
+  margin-top: 0.8rem;
+  padding: 1rem;
+}
+.import-preview p {
+  margin: 0.5rem 0 1rem;
+}
+.validation-errors {
+  border-left: 3px solid var(--danger);
+  color: var(--danger);
+}
+.validation-errors ul {
+  margin-bottom: 0;
+  padding-left: 1.2rem;
+}
+.transfer-status {
+  margin-top: 1rem;
+}
 .onboarding {
   max-width: 680px;
   margin: 3rem auto;
