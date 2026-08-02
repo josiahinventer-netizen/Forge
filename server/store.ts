@@ -203,7 +203,7 @@ export class ForgeSyncStore {
       for (const change of changes) {
         const existing = existingStatement.get(accountId, change.entityType, change.recordId) as
           ExistingRecordRow | undefined;
-        if (existing && Date.parse(existing.updated_at) > Date.parse(change.updatedAt)) {
+        if (existing && Date.parse(existing.updated_at) >= Date.parse(change.updatedAt)) {
           ignored += 1;
           continue;
         }

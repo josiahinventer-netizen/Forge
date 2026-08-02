@@ -52,6 +52,17 @@ export interface Capability extends BaseRecord {
   requiredResources: CapabilityResourceRequirement[];
 }
 
+export interface SyncSettings {
+  id: 'primary';
+  serverUrl: string;
+  username: string;
+  sessionToken: string;
+  sessionExpiresAt: string;
+  cursor: number;
+  lastSyncAt?: string;
+  lastError?: string;
+}
+
 export type CapabilityAvailability = 'Available' | 'Partially available' | 'Blocked';
 
 export interface ExportBundle {

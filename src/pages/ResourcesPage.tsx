@@ -142,7 +142,7 @@ export function ResourcesPage() {
                   type="button"
                   className="danger"
                   onClick={async () => {
-                    await db.resources.update(edit.id, { archived: true });
+                    await db.resources.update(edit.id, { archived: true, updatedAt: now() });
                     setEdit(null);
                   }}
                 >

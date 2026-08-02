@@ -77,6 +77,7 @@ describe('incremental account-isolated synchronization', () => {
       payload: { id: 'carpentry', name: 'Carpentry', practicalLevel: 3 },
     };
     const pushed = store.push(account.id, [newest]);
+    const duplicate = store.push(account.id, [newest]);
     const stale = store.push(account.id, [
       { ...newest, updatedAt: '2026-08-01T12:00:00.000Z', payload: { name: 'Old' } },
     ]);
@@ -89,6 +90,7 @@ describe('incremental account-isolated synchronization', () => {
       },
     ]);
 
+    expect(duplicate).toMatchObject({ accepted: 0, ignored: 1, cursor: pushed.cursor });
     expect(stale).toMatchObject({ accepted: 0, ignored: 1, cursor: pushed.cursor });
     expect(deletion.cursor).toBeGreaterThan(pushed.cursor);
     expect(store.pull(account.id, pushed.cursor).changes).toEqual([
