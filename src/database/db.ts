@@ -7,9 +7,10 @@ import type {
   Skill,
   SyncSettings,
   Todo,
+  TodoOccurrence,
 } from '../types/models';
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
@@ -19,6 +20,7 @@ export class ForgeDatabase extends Dexie {
   attachments!: EntityTable<EvidenceAttachment, 'id'>;
   todos!: EntityTable<Todo, 'id'>;
   activities!: EntityTable<Activity, 'id'>;
+  todoOccurrences!: EntityTable<TodoOccurrence, 'id'>;
 
   constructor(name = 'forge') {
     super(name);
@@ -134,6 +136,19 @@ export class ForgeDatabase extends Dexie {
       capabilities: 'id, name, category, archived, updatedAt, *tags',
       attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
       todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
+      activities: 'id, title, occurredAt, archived, updatedAt, *tags',
+      syncSettings: 'id',
+    });
+
+    // V9 preserves each recurring completion while keeping the parent todo stable.
+    this.version(9).stores({
+      skills: 'id, name, category, archived, updatedAt, *tags',
+      resources:
+        'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
+      capabilities: 'id, name, category, archived, updatedAt, *tags',
+      attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+      todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
+      todoOccurrences: 'id, todoId, completedAt, archived, updatedAt, *tags',
       activities: 'id, title, occurredAt, archived, updatedAt, *tags',
       syncSettings: 'id',
     });

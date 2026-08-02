@@ -703,6 +703,37 @@ form > button:last-child {
   letter-spacing: 0.15em;
   font-weight: 700;
 }
+.speech-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: start;
+}
+.speech-input button {
+  min-height: 44px;
+}
+.speech-input button.listening {
+  background: var(--danger);
+}
+.notification-settings {
+  margin-bottom: 1rem;
+}
+.history-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.history-list > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 1rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+}
+.history-list small {
+  color: var(--muted);
+  grid-column: 1 / -1;
+}
 @media (max-width: 850px) {
   aside {
     display: none;
@@ -766,6 +797,9 @@ form > button:last-child {
   }
 }
 @media (max-width: 520px) {
+  .speech-input {
+    grid-template-columns: 1fr;
+  }
   .form-grid,
   .toolbar {
     grid-template-columns: 1fr;

@@ -68,6 +68,12 @@ export interface EvidenceAttachment extends BaseRecord {
 
 export type TodoStatus = 'Open' | 'In progress' | 'Completed';
 export type TodoPriority = 'Low' | 'Normal' | 'High' | 'Urgent';
+export type RecurrenceFrequency = 'Daily' | 'Weekly' | 'Monthly';
+
+export interface TodoRecurrence {
+  frequency: RecurrenceFrequency;
+  interval: number;
+}
 
 export interface Todo extends BaseRecord {
   title: string;
@@ -84,6 +90,17 @@ export interface Todo extends BaseRecord {
   linkedCapabilityIds: string[];
   completionNotes: string;
   completedAt?: string;
+  recurrence?: TodoRecurrence;
+}
+
+export interface TodoOccurrence extends BaseRecord {
+  todoId: string;
+  title: string;
+  purpose: string;
+  scheduledFor?: string;
+  dueAt?: string;
+  completedAt: string;
+  completionNotes: string;
 }
 
 export type PracticeKind =
@@ -195,6 +212,7 @@ export interface ExportBundle {
     attachments?: EvidenceAttachment[];
     todos?: Todo[];
     activities?: Activity[];
+    todoOccurrences?: TodoOccurrence[];
   };
 }
 

@@ -117,6 +117,18 @@ describe('JSON export', () => {
       tags: [],
       archived: false,
     });
+    await database.todoOccurrences.put({
+      id: 'occurrence',
+      todoId: 'todo',
+      title: 'Build practice joint',
+      purpose: 'Practice carpentry',
+      completedAt: '2026-01-03',
+      completionNotes: 'Done',
+      createdAt: '2026-01-03',
+      updatedAt: '2026-01-03',
+      tags: [],
+      archived: false,
+    });
 
     const bundle = await createExport(database);
     const parsed = JSON.parse(JSON.stringify(bundle)) as typeof bundle;
@@ -131,5 +143,6 @@ describe('JSON export', () => {
     expect(parsed.records.attachments?.[0]?.ownerId).toBe('active');
     expect(parsed.records.todos?.[0]?.purpose).toBe('Practice carpentry');
     expect(parsed.records.activities?.[0]?.skillPractice[0]?.skillId).toBe('active');
+    expect(parsed.records.todoOccurrences?.[0]?.todoId).toBe('todo');
   });
 });

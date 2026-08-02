@@ -9,6 +9,7 @@ import type {
   Resource,
   Skill,
   Todo,
+  TodoOccurrence,
 } from '../types/models';
 
 declare const __APP_VERSION__: string;
@@ -137,7 +138,26 @@ export function isTodo(value: unknown): value is Todo {
     isStringArray(value.linkedResourceIds) &&
     isStringArray(value.linkedCapabilityIds) &&
     typeof value.completionNotes === 'string' &&
-    (value.completedAt === undefined || isDate(value.completedAt))
+    (value.completedAt === undefined || isDate(value.completedAt)) &&
+    (value.recurrence === undefined ||
+      (isRecord(value.recurrence) &&
+        ['Daily', 'Weekly', 'Monthly'].includes(String(value.recurrence.frequency)) &&
+        typeof value.recurrence.interval === 'number' &&
+        Number.isInteger(value.recurrence.interval) &&
+        value.recurrence.interval >= 1))
+  );
+}
+
+export function isTodoOccurrence(value: unknown): value is TodoOccurrence {
+  if (!isRecord(value) || !hasBaseRecord(value)) return false;
+  return (
+    typeof value.todoId === 'string' &&
+    typeof value.title === 'string' &&
+    typeof value.purpose === 'string' &&
+    (value.scheduledFor === undefined || isDate(value.scheduledFor)) &&
+    (value.dueAt === undefined || isDate(value.dueAt)) &&
+    isDate(value.completedAt) &&
+    typeof value.completionNotes === 'string'
   );
 }
 
@@ -243,6 +263,7 @@ export function validateImport(value: unknown): ImportValidationResult {
   const attachments = value.records.attachments ?? [];
   const todos = value.records.todos ?? [];
   const activities = value.records.activities ?? [];
+  const todoOccurrences = value.records.todoOccurrences ?? [];
   if (!Array.isArray(skills) || !skills.every(isSkill)) errors.push('Skills contain invalid data.');
   if (!Array.isArray(resources) || !resources.every(isResource))
     errors.push('Resources contain invalid data.');
@@ -253,6 +274,8 @@ export function validateImport(value: unknown): ImportValidationResult {
   if (!Array.isArray(todos) || !todos.every(isTodo)) errors.push('Todos contain invalid data.');
   if (!Array.isArray(activities) || !activities.every(isActivity))
     errors.push('Activities contain invalid data.');
+  if (!Array.isArray(todoOccurrences) || !todoOccurrences.every(isTodoOccurrence))
+    errors.push('Todo occurrences contain invalid data.');
   if (errors.length) return { valid: false, errors };
 
   const bundle = value as unknown as ExportBundle;
@@ -265,6 +288,8 @@ export function validateImport(value: unknown): ImportValidationResult {
   if (!hasUniqueIds(bundle.records.todos ?? [])) errors.push('Todos contain duplicate IDs.');
   if (!hasUniqueIds(bundle.records.activities ?? []))
     errors.push('Activities contain duplicate IDs.');
+  if (!hasUniqueIds(bundle.records.todoOccurrences ?? []))
+    errors.push('Todo occurrences contain duplicate IDs.');
   return errors.length ? { valid: false, errors } : { valid: true, bundle };
 }
 
@@ -293,6 +318,7 @@ export async function importData(
       database.attachments,
       database.todos,
       database.activities,
+      database.todoOccurrences,
     ],
     async () => {
       if (mode === 'replace') {
@@ -303,6 +329,7 @@ export async function importData(
           database.attachments.clear(),
           database.todos.clear(),
           database.activities.clear(),
+          database.todoOccurrences.clear(),
         ]);
         await database.skills.bulkPut(bundle.records.skills);
         await database.resources.bulkPut(bundle.records.resources);
@@ -310,6 +337,7 @@ export async function importData(
         await database.attachments.bulkPut(bundle.records.attachments ?? []);
         await database.todos.bulkPut(bundle.records.todos ?? []);
         await database.activities.bulkPut(bundle.records.activities ?? []);
+        await database.todoOccurrences.bulkPut(bundle.records.todoOccurrences ?? []);
         return;
       }
 
@@ -330,6 +358,12 @@ export async function importData(
       );
       await database.activities.bulkPut(
         newerRecords(await database.activities.toArray(), bundle.records.activities ?? []),
+      );
+      await database.todoOccurrences.bulkPut(
+        newerRecords(
+          await database.todoOccurrences.toArray(),
+          bundle.records.todoOccurrences ?? [],
+        ),
       );
     },
   );
@@ -352,6 +386,7 @@ export async function createExport(database: ForgeDatabase = db): Promise<Export
       attachments: await database.attachments.toArray(),
       todos: await database.todos.toArray(),
       activities: await database.activities.toArray(),
+      todoOccurrences: await database.todoOccurrences.toArray(),
     },
   };
 }

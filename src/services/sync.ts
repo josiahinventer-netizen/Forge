@@ -8,6 +8,7 @@ import type {
   Skill,
   SyncSettings,
   Todo,
+  TodoOccurrence,
 } from '../types/models';
 import {
   isActivity,
@@ -16,9 +17,11 @@ import {
   isResource,
   isSkill,
   isTodo,
+  isTodoOccurrence,
 } from './dataTransfer';
 
-type EntityType = 'skill' | 'resource' | 'capability' | 'attachment' | 'todo' | 'activity';
+type EntityType =
+  'skill' | 'resource' | 'capability' | 'attachment' | 'todo' | 'activity' | 'todoOccurrence';
 
 interface SyncChange {
   revision: number;
@@ -71,7 +74,8 @@ const isSyncChange = (value: unknown): value is SyncChange => {
       change.entityType === 'capability' ||
       change.entityType === 'attachment' ||
       change.entityType === 'todo' ||
-      change.entityType === 'activity') &&
+      change.entityType === 'activity' ||
+      change.entityType === 'todoOccurrence') &&
     typeof change.recordId === 'string' &&
     typeof change.updatedAt === 'string' &&
     !Number.isNaN(Date.parse(change.updatedAt)) &&
@@ -154,7 +158,7 @@ export async function connectDevice(
 }
 
 const payload = (
-  record: Skill | Resource | Capability | EvidenceAttachment | Todo | Activity,
+  record: Skill | Resource | Capability | EvidenceAttachment | Todo | Activity | TodoOccurrence,
 ): Record<string, unknown> => JSON.parse(JSON.stringify(record)) as Record<string, unknown>;
 
 async function applyChange(database: ForgeDatabase, change: SyncChange) {
@@ -169,7 +173,9 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
             ? await database.attachments.get(change.recordId)
             : change.entityType === 'todo'
               ? await database.todos.get(change.recordId)
-              : await database.activities.get(change.recordId);
+              : change.entityType === 'activity'
+                ? await database.activities.get(change.recordId)
+                : await database.todoOccurrences.get(change.recordId);
   if (existing && Date.parse(existing.updatedAt) > Date.parse(change.updatedAt)) return;
   if (change.deleted) {
     if (change.entityType === 'skill') await database.skills.delete(change.recordId);
@@ -178,7 +184,8 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
       await database.capabilities.delete(change.recordId);
     else if (change.entityType === 'attachment') await database.attachments.delete(change.recordId);
     else if (change.entityType === 'todo') await database.todos.delete(change.recordId);
-    else await database.activities.delete(change.recordId);
+    else if (change.entityType === 'activity') await database.activities.delete(change.recordId);
+    else await database.todoOccurrences.delete(change.recordId);
     return;
   }
   if (change.entityType === 'skill' && isSkill(change.payload))
@@ -193,6 +200,8 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
     await database.todos.put(change.payload);
   else if (change.entityType === 'activity' && isActivity(change.payload))
     await database.activities.put(change.payload);
+  else if (change.entityType === 'todoOccurrence' && isTodoOccurrence(change.payload))
+    await database.todoOccurrences.put(change.payload);
   else throw new Error(`The server returned an invalid ${change.entityType} record.`);
 }
 
@@ -211,14 +220,16 @@ async function performSync(
     'content-type': 'application/json',
   };
   try {
-    const [skills, resources, capabilities, attachments, todos, activities] = await Promise.all([
-      database.skills.toArray(),
-      database.resources.toArray(),
-      database.capabilities.toArray(),
-      database.attachments.toArray(),
-      database.todos.toArray(),
-      database.activities.toArray(),
-    ]);
+    const [skills, resources, capabilities, attachments, todos, activities, todoOccurrences] =
+      await Promise.all([
+        database.skills.toArray(),
+        database.resources.toArray(),
+        database.capabilities.toArray(),
+        database.attachments.toArray(),
+        database.todos.toArray(),
+        database.activities.toArray(),
+        database.todoOccurrences.toArray(),
+      ]);
     const changes = [
       ...skills.map((record) => ({ entityType: 'skill' as const, record })),
       ...resources.map((record) => ({ entityType: 'resource' as const, record })),
@@ -226,6 +237,7 @@ async function performSync(
       ...attachments.map((record) => ({ entityType: 'attachment' as const, record })),
       ...todos.map((record) => ({ entityType: 'todo' as const, record })),
       ...activities.map((record) => ({ entityType: 'activity' as const, record })),
+      ...todoOccurrences.map((record) => ({ entityType: 'todoOccurrence' as const, record })),
     ].map(({ entityType, record }) => ({
       entityType,
       recordId: record.id,
@@ -282,6 +294,7 @@ async function performSync(
         database.attachments,
         database.todos,
         database.activities,
+        database.todoOccurrences,
         database.syncSettings,
       ],
       async () => {
@@ -337,15 +350,25 @@ export function startAutomaticSync(
   };
 
   const records = liveQuery(async () => {
-    const [skills, resources, capabilities, attachments, todos, activities] = await Promise.all([
-      database.skills.toArray(),
-      database.resources.toArray(),
-      database.capabilities.toArray(),
-      database.attachments.toArray(),
-      database.todos.toArray(),
-      database.activities.toArray(),
-    ]);
-    return [...skills, ...resources, ...capabilities, ...attachments, ...todos, ...activities]
+    const [skills, resources, capabilities, attachments, todos, activities, todoOccurrences] =
+      await Promise.all([
+        database.skills.toArray(),
+        database.resources.toArray(),
+        database.capabilities.toArray(),
+        database.attachments.toArray(),
+        database.todos.toArray(),
+        database.activities.toArray(),
+        database.todoOccurrences.toArray(),
+      ]);
+    return [
+      ...skills,
+      ...resources,
+      ...capabilities,
+      ...attachments,
+      ...todos,
+      ...activities,
+      ...todoOccurrences,
+    ]
       .map((record) => `${record.id}:${record.updatedAt}`)
       .sort()
       .join('|');
