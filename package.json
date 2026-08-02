@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "server:start": "tsx server/index.ts",
     "server:lan": "tsx server/lan.ts",
+    "mcp:start": "tsx server/mcp.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -16,7 +17,9 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@vitejs/plugin-react": "^4.4.1",
+    "better-sqlite3": "^13.0.2",
     "dexie": "^4.0.11",
     "dexie-react-hooks": "^1.1.7",
     "react": "^19.1.0",
@@ -24,16 +27,16 @@
     "react-router-dom": "7.18.2",
     "vite": "^6.3.5",
     "vite-plugin-pwa": "^1.0.0",
-    "better-sqlite3": "^13.0.2"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
-    "@types/react": "^19.1.6",
-    "@types/react-dom": "^19.1.5",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.1.0",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
     "eslint": "^9.28.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
@@ -41,8 +44,8 @@
     "globals": "^16.2.0",
     "jsdom": "^26.1.0",
     "prettier": "^3.5.3",
-    "typescript": "~5.8.3",
     "tsx": "^4.23.4",
+    "typescript": "~5.8.3",
     "typescript-eslint": "^8.33.1",
     "vitest": "^3.2.2"
   }
