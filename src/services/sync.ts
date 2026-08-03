@@ -53,6 +53,26 @@ interface PushResponse {
   cursor: number;
 }
 
+export interface SyncConflictRecord {
+  id: number;
+  entityType: EntityType;
+  recordId: string;
+  incomingUpdatedAt: string;
+  incomingDeleted: boolean;
+  incomingPayload: Record<string, unknown> | null;
+  reason: string;
+  recordedAt: string;
+  resolvedAt: string | null;
+  resolution: 'kept-current' | 'restored-preserved' | null;
+  current: {
+    entityType: EntityType;
+    recordId: string;
+    updatedAt: string;
+    deleted: boolean;
+    payload: Record<string, unknown> | null;
+  } | null;
+}
+
 function pushBatches(changes: Omit<SyncChange, 'revision'>[]) {
   const batches: Array<Omit<SyncChange, 'revision'>[]> = [];
   let batch: Omit<SyncChange, 'revision'>[] = [];
@@ -114,6 +134,90 @@ async function requestJson(
     throw new Error(message);
   }
   return body;
+}
+
+const isRecordObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isEntityType = (value: unknown): value is EntityType =>
+  value === 'skill' ||
+  value === 'resource' ||
+  value === 'capability' ||
+  value === 'attachment' ||
+  value === 'todo' ||
+  value === 'activity' ||
+  value === 'todoOccurrence' ||
+  value === 'reminderEvent';
+
+const isConflictCurrent = (value: unknown): value is NonNullable<SyncConflictRecord['current']> =>
+  isRecordObject(value) &&
+  isEntityType(value.entityType) &&
+  typeof value.recordId === 'string' &&
+  typeof value.updatedAt === 'string' &&
+  typeof value.deleted === 'boolean' &&
+  (value.payload === null || isRecordObject(value.payload));
+
+function isConflict(value: unknown): value is SyncConflictRecord {
+  if (!isRecordObject(value)) return false;
+  return (
+    Number.isSafeInteger(value.id) &&
+    isEntityType(value.entityType) &&
+    typeof value.recordId === 'string' &&
+    typeof value.incomingUpdatedAt === 'string' &&
+    typeof value.incomingDeleted === 'boolean' &&
+    (value.incomingPayload === null || isRecordObject(value.incomingPayload)) &&
+    typeof value.reason === 'string' &&
+    typeof value.recordedAt === 'string' &&
+    (value.resolvedAt === null || typeof value.resolvedAt === 'string') &&
+    (value.resolution === null ||
+      value.resolution === 'kept-current' ||
+      value.resolution === 'restored-preserved') &&
+    (value.current === null || isConflictCurrent(value.current))
+  );
+}
+
+export async function listSyncConflicts(
+  includeResolved = false,
+  database: ForgeDatabase = db,
+  fetcher: typeof fetch = fetch,
+): Promise<SyncConflictRecord[]> {
+  const settings = await database.syncSettings.get('primary');
+  if (!settings) throw new Error('Connect this device to the sync server first.');
+  const result = await requestJson(
+    `${settings.serverUrl}/api/sync/conflicts${includeResolved ? '?status=all' : ''}`,
+    { headers: { authorization: `Bearer ${settings.sessionToken}` } },
+    fetcher,
+  );
+  if (
+    !isRecordObject(result) ||
+    !Array.isArray(result.conflicts) ||
+    !result.conflicts.every(isConflict)
+  )
+    throw new Error('The sync server returned invalid conflict history.');
+  return result.conflicts;
+}
+
+export async function resolveSyncConflict(
+  conflictId: number,
+  resolution: 'kept-current' | 'restored-preserved',
+  database: ForgeDatabase = db,
+  fetcher: typeof fetch = fetch,
+): Promise<void> {
+  const settings = await database.syncSettings.get('primary');
+  if (!settings) throw new Error('Connect this device to the sync server first.');
+  await requestJson(
+    `${settings.serverUrl}/api/sync/conflicts/${conflictId}/resolve`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${settings.sessionToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ resolution }),
+    },
+    fetcher,
+  );
+  if (resolution === 'restored-preserved') await syncNow(database, fetcher);
 }
 
 function sessionFrom(value: unknown): { token: string; expiresAt: string } {

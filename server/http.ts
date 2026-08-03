@@ -130,6 +130,27 @@ export function createForgeServer(options: ForgeServerOptions) {
         json(response, 200, store.pull(accountId, cursor));
         return;
       }
+      if (request.method === 'GET' && url.pathname === '/api/sync/conflicts') {
+        json(response, 200, {
+          conflicts: store.conflicts(accountId, url.searchParams.get('status') === 'all'),
+        });
+        return;
+      }
+      const conflictMatch = url.pathname.match(/^\/api\/sync\/conflicts\/(\d+)\/resolve$/);
+      if (request.method === 'POST' && conflictMatch) {
+        const body = fields(await readJson(request));
+        if (
+          !body ||
+          (body.resolution !== 'kept-current' && body.resolution !== 'restored-preserved')
+        ) {
+          json(response, 400, { error: 'A valid conflict resolution is required.' });
+          return;
+        }
+        const result = store.resolveConflict(accountId, Number(conflictMatch[1]), body.resolution);
+        if (result.restored) changes.emit(accountId);
+        json(response, 200, result);
+        return;
+      }
       if (request.method === 'GET' && url.pathname === '/api/sync/wait') {
         const cursor = Number(url.searchParams.get('cursor') ?? '0');
         if (!Number.isSafeInteger(cursor) || cursor < 0) {

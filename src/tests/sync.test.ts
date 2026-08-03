@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ForgeDatabase } from '../database/db';
-import { connectDevice, syncNow } from '../services/sync';
+import { connectDevice, listSyncConflicts, resolveSyncConflict, syncNow } from '../services/sync';
 import type { Skill } from '../types/models';
 
 const databases: ForgeDatabase[] = [];
@@ -217,5 +217,49 @@ describe('device synchronization', () => {
       changes: Array<{ recordId: string }>;
     };
     expect(pushedBody.changes[0]?.recordId).toBe('carpentry');
+  });
+
+  it('loads and resolves authenticated conflict history', async () => {
+    const database = makeDatabase();
+    await database.syncSettings.put({
+      id: 'primary',
+      serverUrl: 'https://computer.local:8787',
+      username: 'josiah',
+      sessionToken: 'token',
+      sessionExpiresAt: '2099-01-01T00:00:00.000Z',
+      cursor: 0,
+    });
+    const conflict = {
+      id: 7,
+      entityType: 'skill',
+      recordId: 'typing',
+      incomingUpdatedAt: '2026-08-01T00:00:00.000Z',
+      incomingDeleted: false,
+      incomingPayload: { id: 'typing', name: 'Typing' },
+      reason: 'stale update',
+      recordedAt: '2026-08-02T00:00:00.000Z',
+      resolvedAt: null,
+      resolution: null,
+      current: {
+        entityType: 'skill',
+        recordId: 'typing',
+        updatedAt: '2026-08-02T00:00:00.000Z',
+        deleted: false,
+        payload: { id: 'typing', name: 'Touch typing' },
+      },
+    };
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ conflicts: [conflict] }))
+      .mockResolvedValueOnce(jsonResponse({ conflict: { ...conflict, resolvedAt: 'now' } }));
+
+    expect(await listSyncConflicts(false, database, fetcher)).toEqual([conflict]);
+    await resolveSyncConflict(7, 'kept-current', database, fetcher);
+
+    expect(fetcher.mock.calls[0]?.[0]).toBe('https://computer.local:8787/api/sync/conflicts');
+    expect(fetcher.mock.calls[1]?.[0]).toBe(
+      'https://computer.local:8787/api/sync/conflicts/7/resolve',
+    );
+    expect(fetcher.mock.calls[1]?.[1]?.body).toBe(JSON.stringify({ resolution: 'kept-current' }));
   });
 });

@@ -16,6 +16,8 @@ import type {
   SyncChange,
   SyncChangeInput,
   SyncEntityType,
+  SyncConflict,
+  ConflictResolution,
 } from './types.js';
 import { SYNC_ENTITY_TYPES } from './types.js';
 
@@ -169,6 +171,15 @@ export class ForgeSyncStore {
         CREATE INDEX drive_inbox_receipts_account_processed
           ON drive_inbox_receipts(account_id, processed_at);
         PRAGMA user_version = 4;
+      `);
+    }
+    if (version < 5) {
+      this.database.exec(`
+        ALTER TABLE sync_conflicts ADD COLUMN resolved_at TEXT;
+        ALTER TABLE sync_conflicts ADD COLUMN resolution TEXT;
+        CREATE INDEX sync_conflicts_account_resolution
+          ON sync_conflicts(account_id, resolved_at, id);
+        PRAGMA user_version = 5;
       `);
     }
   }
@@ -437,6 +448,85 @@ export class ForgeSyncStore {
       .prepare('SELECT COUNT(*) AS count FROM sync_conflicts WHERE account_id = ?')
       .get(accountId) as { count: number };
     return row.count;
+  }
+
+  conflicts(accountId: string, includeResolved = false): SyncConflict[] {
+    const rows = this.database
+      .prepare(
+        `SELECT id, entity_type, record_id, incoming_updated_at, incoming_deleted,
+          incoming_payload, reason, recorded_at, resolved_at, resolution
+         FROM sync_conflicts
+         WHERE account_id = ? ${includeResolved ? '' : 'AND resolved_at IS NULL'}
+         ORDER BY id DESC LIMIT 200`,
+      )
+      .all(accountId) as Array<{
+      id: number;
+      entity_type: string;
+      record_id: string;
+      incoming_updated_at: string;
+      incoming_deleted: number;
+      incoming_payload: string | null;
+      reason: string;
+      recorded_at: string;
+      resolved_at: string | null;
+      resolution: ConflictResolution | null;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      entityType: row.entity_type as SyncEntityType,
+      recordId: row.record_id,
+      incomingUpdatedAt: row.incoming_updated_at,
+      incomingDeleted: row.incoming_deleted === 1,
+      incomingPayload: row.incoming_payload
+        ? (JSON.parse(row.incoming_payload) as Record<string, unknown>)
+        : null,
+      reason: row.reason,
+      recordedAt: row.recorded_at,
+      resolvedAt: row.resolved_at,
+      resolution: row.resolution,
+      current: this.archiveRecord(accountId, row.entity_type as SyncEntityType, row.record_id),
+    }));
+  }
+
+  resolveConflict(
+    accountId: string,
+    conflictId: number,
+    resolution: ConflictResolution,
+  ): { conflict: SyncConflict; restored: boolean } {
+    const conflict = this.conflicts(accountId).find((item) => item.id === conflictId);
+    if (!conflict) throw new Error('Conflict was not found or was already resolved.');
+    const resolvedAt = new Date().toISOString();
+    let restored = false;
+    if (resolution === 'restored-preserved') {
+      const restoredAt = new Date(
+        Math.max(
+          Date.now(),
+          Date.parse(conflict.incomingUpdatedAt) + 1,
+          conflict.current ? Date.parse(conflict.current.updatedAt) + 1 : 0,
+        ),
+      ).toISOString();
+      const restoredPayload = conflict.incomingPayload
+        ? { ...conflict.incomingPayload, updatedAt: restoredAt }
+        : null;
+      this.push(accountId, [
+        {
+          entityType: conflict.entityType,
+          recordId: conflict.recordId,
+          updatedAt: restoredAt,
+          deleted: conflict.incomingDeleted,
+          payload: restoredPayload,
+        },
+      ]);
+      restored = true;
+    }
+    this.database
+      .prepare(
+        'UPDATE sync_conflicts SET resolved_at = ?, resolution = ? WHERE account_id = ? AND id = ? AND resolved_at IS NULL',
+      )
+      .run(resolvedAt, resolution, accountId, conflictId);
+    const resolved = this.conflicts(accountId, true).find((item) => item.id === conflictId);
+    if (!resolved) throw new Error('Conflict resolution could not be recorded.');
+    return { conflict: resolved, restored };
   }
 
   pull(accountId: string, cursor: number): PullResult {

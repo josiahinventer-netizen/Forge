@@ -65,6 +65,8 @@ The server creates `%LOCALAPPDATA%\Forge\forge-sync.sqlite` on Windows, outside 
 - Cursor-based downloads, stale-write protection, and deletion tombstones
 - Authenticated change notifications for near-real-time synchronization between open devices
 - Preserved stale or same-time conflicting versions in the local `sync_conflicts` archive
+- Account-isolated conflict review that compares changed fields and can deliberately keep the
+  current record or restore the preserved version
 - A strict GitHub Pages origin allowlist
 
 No personal records are stored on GitHub. Google Drive archive mirroring is optional and is enabled on this computer to provide an off-device backup and a ChatGPT-readable bridge; the local SQLite database remains authoritative. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge asks browsers not to save or autofill the local-account password; browser password managers remain separately controlled by the user. Forge still needs recovery codes, encrypted automatic backups, and backup-retention controls. Do not expose port `8787` through a router or firewall.
@@ -148,7 +150,13 @@ All records are stored locally using Dexie and IndexedDB. Use **Data → Export 
 
 When a device is connected under **Data â†’ Computer synchronization**, Forge observes local record changes and synchronizes them automatically after a short debounce. The computer maintains an authenticated waiting connection that wakes other open Forge devices when changes arrive. Forge also synchronizes at startup, when connectivity returns, and every 30 seconds as a fallback. If the browser suspends or closes the PWA, queued record state converges automatically on its next launch. Passwords are not saved on the device. Exported and imported files are never sent automatically.
 
-Forge normally resolves the same record using its newest `updatedAt` value. If an older or same-time-but-different version reaches the computer, the active record remains unchanged and the rejected version is retained in SQLite's `sync_conflicts` table. A conflict-review interface is still planned; this preservation prevents the discarded version from being silently lost in the meantime.
+Forge normally resolves the same record using its newest `updatedAt` value. If an older or
+same-time-but-different version reaches the computer, the active record remains unchanged and the
+rejected version is retained in SQLite's `sync_conflicts` table. Open **Data transfer → Conflicting
+edits** to compare readable changed fields. **Keep current** records the decision without deleting
+the preserved history. **Restore preserved version** requires confirmation, gives that version a
+new update timestamp, and synchronizes it normally to connected devices. Image data is never
+printed into the comparison.
 
 ## Local ChatGPT and Codex access
 
