@@ -41,3 +41,19 @@ export interface ArchiveRecord {
   deleted: boolean;
   payload: Record<string, unknown> | null;
 }
+
+export type ConflictResolution = 'kept-current' | 'restored-preserved';
+
+export interface SyncConflict {
+  id: number;
+  entityType: SyncEntityType;
+  recordId: string;
+  incomingUpdatedAt: string;
+  incomingDeleted: boolean;
+  incomingPayload: Record<string, unknown> | null;
+  reason: string;
+  recordedAt: string;
+  resolvedAt: string | null;
+  resolution: ConflictResolution | null;
+  current: ArchiveRecord | null;
+}

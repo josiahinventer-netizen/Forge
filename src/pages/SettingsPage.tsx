@@ -3,7 +3,14 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Card, Page } from '../components/UI';
 import { db, SCHEMA_VERSION } from '../database/db';
 import { createExport, downloadExport, importData, validateImport } from '../services/dataTransfer';
-import { connectDevice, syncNow } from '../services/sync';
+import {
+  connectDevice,
+  listSyncConflicts,
+  resolveSyncConflict,
+  syncNow,
+  type SyncConflictRecord,
+} from '../services/sync';
+import { conflictDifferences, conflictDisplayName } from '../services/syncConflict';
 import type { ExportBundle } from '../types/models';
 
 export function SettingsPage() {
@@ -17,6 +24,8 @@ export function SettingsPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [syncBusy, setSyncBusy] = useState(false);
+  const [conflicts, setConflicts] = useState<SyncConflictRecord[] | null>(null);
+  const [conflictBusy, setConflictBusy] = useState(false);
 
   const connect = async (createAccount: boolean) => {
     setSyncBusy(true);
@@ -42,6 +51,44 @@ export function SettingsPage() {
       setStatus(error instanceof Error ? error.message : 'Synchronization failed.');
     } finally {
       setSyncBusy(false);
+    }
+  };
+
+  const loadConflicts = async () => {
+    setConflictBusy(true);
+    try {
+      setConflicts(await listSyncConflicts());
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not load conflict history.');
+    } finally {
+      setConflictBusy(false);
+    }
+  };
+
+  const resolveConflict = async (
+    conflict: SyncConflictRecord,
+    resolution: 'kept-current' | 'restored-preserved',
+  ) => {
+    if (
+      resolution === 'restored-preserved' &&
+      !window.confirm(
+        `Restore the preserved ${conflict.entityType} version for “${conflictDisplayName(conflict)}”? This will become the current version and synchronize to your other devices.`,
+      )
+    )
+      return;
+    setConflictBusy(true);
+    try {
+      await resolveSyncConflict(conflict.id, resolution);
+      setConflicts(await listSyncConflicts());
+      setStatus(
+        resolution === 'restored-preserved'
+          ? 'The preserved version is current and will synchronize to other devices.'
+          : 'Kept the current version. The conflict remains in computer history.',
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not resolve the conflict.');
+    } finally {
+      setConflictBusy(false);
     }
   };
 
@@ -170,6 +217,69 @@ export function SettingsPage() {
             </form>
           )}
         </Card>
+
+        {syncSettings && (
+          <Card>
+            <h2>Conflicting edits</h2>
+            <p>
+              Review older or simultaneous edits that the computer preserved instead of silently
+              discarding them.
+            </p>
+            <button disabled={conflictBusy} onClick={() => void loadConflicts()}>
+              {conflictBusy ? 'Checking…' : conflicts === null ? 'Check for conflicts' : 'Refresh'}
+            </button>
+            {conflicts?.length === 0 && <p className="evidence">No unresolved conflicts.</p>}
+            {conflicts?.map((conflict) => {
+              const differences = conflictDifferences(conflict);
+              return (
+                <details className="conflict-review" key={conflict.id}>
+                  <summary>
+                    <b>{conflictDisplayName(conflict)}</b> · {conflict.entityType} ·{' '}
+                    {conflict.reason}
+                  </summary>
+                  <p className="muted">
+                    Preserved {new Date(conflict.recordedAt).toLocaleString()}. Current version is
+                    from{' '}
+                    {conflict.current
+                      ? new Date(conflict.current.updatedAt).toLocaleString()
+                      : 'an unknown time'}
+                    .
+                  </p>
+                  {conflict.incomingDeleted ? (
+                    <p>The preserved edit would delete this record.</p>
+                  ) : differences.length ? (
+                    <div className="conflict-fields">
+                      {differences.map((difference) => (
+                        <div key={difference.field}>
+                          <b>{difference.field}</b>
+                          <span>Current: {difference.current}</span>
+                          <span>Preserved: {difference.preserved}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No readable field differences were found.</p>
+                  )}
+                  <div className="actions">
+                    <button
+                      disabled={conflictBusy}
+                      onClick={() => void resolveConflict(conflict, 'kept-current')}
+                    >
+                      Keep current
+                    </button>
+                    <button
+                      className="secondary"
+                      disabled={conflictBusy}
+                      onClick={() => void resolveConflict(conflict, 'restored-preserved')}
+                    >
+                      Restore preserved version
+                    </button>
+                  </div>
+                </details>
+              );
+            })}
+          </Card>
+        )}
 
         <Card>
           <h2>Download JSON backup</h2>

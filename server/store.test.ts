@@ -15,14 +15,19 @@ afterEach(() => {
 });
 
 describe('ForgeSyncStore accounts', () => {
-  it('migrates the local server database through Drive inbox schema version 4', () => {
+  it('migrates the local server database through conflict resolution schema version 5', () => {
     const store = makeStore();
-    expect(store.database.pragma('user_version', { simple: true })).toBe(4);
+    expect(store.database.pragma('user_version', { simple: true })).toBe(5);
     expect(
       store.database
         .prepare(
           "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'drive_inbox_receipts'",
         )
+        .get(),
+    ).toBeTruthy();
+    expect(
+      store.database
+        .prepare("SELECT name FROM pragma_table_info('sync_conflicts') WHERE name = 'resolution'")
         .get(),
     ).toBeTruthy();
   });
@@ -112,6 +117,47 @@ describe('incremental account-isolated synchronization', () => {
     ]);
   });
 
+  it('lists account-isolated conflicts and retains resolution history', async () => {
+    const store = makeStore();
+    const first = await store.createAccount('conflict-user', 'long secure password');
+    const second = await store.createAccount('other-user', 'long secure password');
+    const current = {
+      entityType: 'resource' as const,
+      recordId: 'saw',
+      updatedAt: '2026-08-03T12:00:00.000Z',
+      deleted: false,
+      payload: { id: 'saw', name: 'Current saw', updatedAt: '2026-08-03T12:00:00.000Z' },
+    };
+    store.push(first.id, [current]);
+    store.push(first.id, [
+      {
+        ...current,
+        updatedAt: '2026-08-02T12:00:00.000Z',
+        payload: { id: 'saw', name: 'Preserved saw', updatedAt: '2026-08-02T12:00:00.000Z' },
+      },
+    ]);
+
+    const [conflict] = store.conflicts(first.id);
+    expect(conflict).toMatchObject({
+      recordId: 'saw',
+      incomingPayload: { name: 'Preserved saw' },
+      current: { payload: { name: 'Current saw' } },
+    });
+    expect(store.conflicts(second.id)).toEqual([]);
+
+    const result = store.resolveConflict(first.id, conflict!.id, 'restored-preserved');
+    expect(result.restored).toBe(true);
+    expect(store.conflicts(first.id)).toEqual([]);
+    expect(store.conflicts(first.id, true)[0]).toMatchObject({
+      resolution: 'restored-preserved',
+      resolvedAt: expect.any(String),
+    });
+    expect(store.archiveRecord(first.id, 'resource', 'saw')?.payload).toMatchObject({
+      name: 'Preserved saw',
+      updatedAt: expect.any(String),
+    });
+  });
+
   it('notifies a waiting authenticated device when another device pushes a change', async () => {
     const forgeServer = createForgeServer({
       databasePath: ':memory:',
@@ -154,6 +200,72 @@ describe('incremental account-isolated synchronization', () => {
       });
 
       expect(await (await waiting).json()).toEqual({ changed: true });
+    } finally {
+      await forgeServer.stop();
+    }
+  });
+
+  it('serves authenticated conflict review and resolution endpoints', async () => {
+    const forgeServer = createForgeServer({
+      databasePath: ':memory:',
+      host: '127.0.0.1',
+      port: 0,
+    });
+    try {
+      const address = await forgeServer.start();
+      const baseUrl = `http://127.0.0.1:${address.port}`;
+      await fetch(`${baseUrl}/api/accounts`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username: 'review-user', password: 'long secure password' }),
+      });
+      const sessionResponse = await fetch(`${baseUrl}/api/sessions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username: 'review-user', password: 'long secure password' }),
+      });
+      const session = (await sessionResponse.json()) as { token: string };
+      const headers = {
+        authorization: `Bearer ${session.token}`,
+        'content-type': 'application/json',
+      };
+      const change = {
+        entityType: 'skill',
+        recordId: 'typing',
+        updatedAt: '2026-08-03T12:00:00.000Z',
+        deleted: false,
+        payload: { id: 'typing', name: 'Touch typing' },
+      };
+      await fetch(`${baseUrl}/api/sync/push`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ changes: [change] }),
+      });
+      await fetch(`${baseUrl}/api/sync/push`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          changes: [{ ...change, updatedAt: '2026-08-01T12:00:00.000Z' }],
+        }),
+      });
+
+      const listResponse = await fetch(`${baseUrl}/api/sync/conflicts`, { headers });
+      const list = (await listResponse.json()) as { conflicts: Array<{ id: number }> };
+      expect(listResponse.status).toBe(200);
+      expect(list.conflicts).toHaveLength(1);
+
+      const resolution = await fetch(
+        `${baseUrl}/api/sync/conflicts/${list.conflicts[0]!.id}/resolve`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ resolution: 'kept-current' }),
+        },
+      );
+      expect(resolution.status).toBe(200);
+      expect(await (await fetch(`${baseUrl}/api/sync/conflicts`, { headers })).json()).toEqual({
+        conflicts: [],
+      });
     } finally {
       await forgeServer.stop();
     }

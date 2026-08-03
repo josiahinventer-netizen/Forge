@@ -110,7 +110,7 @@
 - [x] Foreground automatic retry and visible sync status
 - [x] Immediate local-edit detection and authenticated server change notifications
 - [x] Preserve rejected conflicting record versions in the local SQLite archive
-- [ ] Conflict-history review and manual resolution UI
+- [x] Conflict-history review and manual resolution UI
 - [ ] Encrypted automatic local backups
 - [x] Permission-scoped local MCP read/write tools and account-isolated AI audit log
 - [x] Versioned Google Drive archive snapshots with Excel-compatible CSV views
