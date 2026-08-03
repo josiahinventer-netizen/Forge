@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildProgressReview } from '../services/progressReview';
+import { buildProgressReview, compareProgressPeriods } from '../services/progressReview';
 import type { Activity, Capability, EvidenceAttachment, Resource, Skill } from '../types/models';
 
 const base = {
@@ -125,5 +125,31 @@ describe('weekly progress review', () => {
     expect(review.suggestedReview).toBe(
       'Log one meaningful activity with its purpose and observable outcome.',
     );
+  });
+
+  it('compares adjacent periods with exact, non-overlapping boundaries', () => {
+    const comparison = compareProgressPeriods(
+      [
+        activity('current', '2026-08-09T12:00:00.000Z', 'Troubleshooting', 45),
+        activity('boundary', '2026-08-03T12:00:00.000Z', 'Study', 20),
+        activity('previous', '2026-08-02T12:00:00.000Z', 'Independent application', 15),
+      ],
+      [skill],
+      [capability],
+      [resource],
+      [],
+      new Date('2026-08-10T12:00:00.000Z'),
+      7,
+    );
+
+    expect(comparison.current.activityCount).toBe(2);
+    expect(comparison.previous.activityCount).toBe(1);
+    expect(comparison.current.practicalMinutes).toBe(45);
+    expect(comparison.previous.practicalMinutes).toBe(15);
+    expect(comparison.comparisons).toEqual([
+      'Recorded 1 more activity than the previous period.',
+      'Recorded 30 more practical minutes than the previous period.',
+      'Recorded 1 more logged outcome than the previous period.',
+    ]);
   });
 });

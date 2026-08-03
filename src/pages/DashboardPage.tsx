@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router-dom';
 import { Card, Page } from '../components/UI';
 import { db } from '../database/db';
 import { assessCapability, rankClosestCapabilities } from '../services/capabilityAvailability';
-import { buildProgressReview } from '../services/progressReview';
+import { compareProgressPeriods } from '../services/progressReview';
 
 export function DashboardPage() {
+  const [reviewDays, setReviewDays] = useState<7 | 30 | 90>(7);
   const counts = useLiveQuery(async () => {
     const [skills, resources, capabilities, todos, activities, attachments] = await Promise.all([
       db.skills.toArray(),
@@ -42,9 +44,18 @@ export function DashboardPage() {
       ).length,
       activities: activities.length,
       closest: rankClosestCapabilities(capabilities, skills, resources).slice(0, 3),
-      review: buildProgressReview(activities, skills, capabilities, resources, attachments),
+      reviewComparison: compareProgressPeriods(
+        activities,
+        skills,
+        capabilities,
+        resources,
+        attachments,
+        new Date(),
+        reviewDays,
+      ),
     };
-  }, []);
+  }, [reviewDays]);
+  const review = counts?.reviewComparison.current;
 
   return (
     <Page
@@ -140,25 +151,49 @@ export function DashboardPage() {
           )}
         </Card>
         <Card className="weekly-review">
-          <p className="eyebrow">LAST 7 DAYS</p>
+          <div className="review-heading">
+            <p className="eyebrow">RECENT EVIDENCE</p>
+            <div className="period-picker" aria-label="Progress review period">
+              {([7, 30, 90] as const).map((days) => (
+                <button
+                  className={reviewDays === days ? '' : 'secondary'}
+                  aria-pressed={reviewDays === days}
+                  key={days}
+                  onClick={() => setReviewDays(days)}
+                >
+                  {days} days
+                </button>
+              ))}
+            </div>
+          </div>
           <h2>Explainable progress</h2>
-          {counts?.review.activityCount ? (
+          {counts?.reviewComparison && (
+            <div className="period-comparison">
+              <strong>Compared with the previous {reviewDays} days</strong>
+              {counts.reviewComparison.comparisons.map((comparison) => (
+                <p className="muted" key={comparison}>
+                  {comparison}
+                </p>
+              ))}
+            </div>
+          )}
+          {review?.activityCount ? (
             <>
               <div className="review-stats">
                 <span>
-                  <b>{counts.review.activityCount}</b> activities
+                  <b>{review.activityCount}</b> activities
                 </span>
                 <span>
-                  <b>{counts.review.totalActivityMinutes}</b> total minutes
+                  <b>{review.totalActivityMinutes}</b> total minutes
                 </span>
                 <span>
-                  <b>{counts.review.practicalMinutes}</b> practical minutes
+                  <b>{review.practicalMinutes}</b> practical minutes
                 </span>
                 <span>
-                  <b>{counts.review.photoEvidenceCount}</b> evidence photos
+                  <b>{review.photoEvidenceCount}</b> evidence photos
                 </span>
               </div>
-              {counts.review.skills.slice(0, 3).map((skill) => (
+              {review.skills.slice(0, 3).map((skill) => (
                 <div className="next" key={skill.skillId}>
                   <strong>{skill.skillName}</strong>
                   <p className="muted">
@@ -166,24 +201,26 @@ export function DashboardPage() {
                   </p>
                 </div>
               ))}
-              {counts.review.observations.map((observation) => (
+              {review.observations.map((observation) => (
                 <p key={observation}>{observation}</p>
               ))}
               <p className="evidence">
-                <strong>Review suggestion:</strong> {counts.review.suggestedReview}
+                <strong>Review suggestion:</strong> {review.suggestedReview}
               </p>
             </>
           ) : (
             <>
-              <p className="muted">No activity evidence has been logged in the last seven days.</p>
-              <p>{counts?.review.suggestedReview}</p>
+              <p className="muted">
+                No activity evidence has been logged in the last {reviewDays} days.
+              </p>
+              <p>{review?.suggestedReview}</p>
             </>
           )}
         </Card>
-        {counts?.review.capabilities.length ? (
+        {review?.capabilities.length ? (
           <Card>
             <h2>Capabilities you worked toward</h2>
-            {counts.review.capabilities.map((line) => (
+            {review.capabilities.map((line) => (
               <div className="next" key={line.capabilityId}>
                 <strong>{line.capabilityName}</strong>
                 <p className="muted">

@@ -40,6 +40,70 @@ export interface ProgressReview {
   suggestedReview: string;
 }
 
+export interface ProgressComparison {
+  days: 7 | 30 | 90;
+  current: ProgressReview;
+  previous: ProgressReview;
+  comparisons: string[];
+}
+
+const differenceSentence = (
+  current: number,
+  previous: number,
+  label: string,
+  singularLabel = label,
+): string => {
+  if (current === previous)
+    return `Recorded the same ${label} as the previous period (${current}).`;
+  const difference = Math.abs(current - previous);
+  const unit = difference === 1 ? singularLabel : label;
+  return `Recorded ${difference} ${current > previous ? 'more' : 'fewer'} ${unit} than the previous period.`;
+};
+
+export function compareProgressPeriods(
+  activities: readonly Activity[],
+  skills: readonly Skill[],
+  capabilities: readonly Capability[],
+  resources: readonly Resource[],
+  attachments: readonly EvidenceAttachment[],
+  periodEnd = new Date(),
+  days: 7 | 30 | 90 = 7,
+): ProgressComparison {
+  const current = buildProgressReview(
+    activities,
+    skills,
+    capabilities,
+    resources,
+    attachments,
+    periodEnd,
+    days,
+  );
+  const previous = buildProgressReview(
+    activities,
+    skills,
+    capabilities,
+    resources,
+    attachments,
+    new Date(Date.parse(current.periodStart) - 1),
+    days,
+  );
+  return {
+    days,
+    current,
+    previous,
+    comparisons: [
+      differenceSentence(current.activityCount, previous.activityCount, 'activities', 'activity'),
+      differenceSentence(current.practicalMinutes, previous.practicalMinutes, 'practical minutes'),
+      differenceSentence(
+        current.outcomeCount,
+        previous.outcomeCount,
+        'logged outcomes',
+        'logged outcome',
+      ),
+    ],
+  };
+}
+
 export function buildProgressReview(
   activities: readonly Activity[],
   skills: readonly Skill[],
