@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { baseRecord, db, now } from '../database/db';
+import { baseRecord, db, now, uid } from '../database/db';
 import type { RecurrenceFrequency, Todo, TodoPriority, TodoStatus } from '../types/models';
 import { TODO_PRIORITIES } from '../types/models';
 import { orderedTodos, todoTiming } from '../services/todoPlanning';
 import { Card, Empty, Field, Modal, Page, formatDate } from '../components/UI';
 import { SpeechInput } from '../components/SpeechInput';
-import { completeTodo } from '../services/todoOperations';
+import { completeTodo, toggleTodoChecklistItem } from '../services/todoOperations';
 import {
   disableNotifications,
   enableNotifications,
@@ -26,6 +26,7 @@ const emptyTodo = (): Todo => ({
   linkedCapabilityIds: [],
   completionNotes: '',
   reminderMinutesBefore: 15,
+  checklist: [],
 });
 const localInput = (value?: string) => {
   if (!value) return '';
@@ -69,7 +70,7 @@ export function TodosPage() {
   const shown = orderedTodos(todos).filter(
     (todo) =>
       (showCompleted || todo.status !== 'Completed') &&
-      `${todo.title} ${todo.purpose} ${todo.description}`
+      `${todo.title} ${todo.purpose} ${todo.description} ${(todo.checklist ?? []).map((item) => item.text).join(' ')}`
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
@@ -137,6 +138,8 @@ export function TodosPage() {
         <div className="list">
           {shown.map((todo) => {
             const timing = todoTiming(todo);
+            const checklist = todo.checklist ?? [];
+            const completedSteps = checklist.filter((item) => item.completed).length;
             return (
               <Card key={todo.id}>
                 <div className="row">
@@ -162,6 +165,26 @@ export function TodosPage() {
                         ? ` · Snoozed until ${new Date(todo.snoozedUntil).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
                         : ''}
                     </p>
+                    {checklist.length > 0 && (
+                      <div className="todo-checklist" aria-label={`${todo.title} checklist`}>
+                        <p className="muted">
+                          {completedSteps} of {checklist.length} steps complete
+                        </p>
+                        {checklist.map((item) => (
+                          <label className="check" key={item.id}>
+                            <input
+                              type="checkbox"
+                              checked={item.completed}
+                              disabled={todo.status === 'Completed'}
+                              onChange={() => void toggleTodoChecklistItem(todo.id, item.id)}
+                            />{' '}
+                            <span className={item.completed ? 'completed-step' : ''}>
+                              {item.text}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="actions vertical">
                     <button className="secondary" onClick={() => setEdit(todo)}>
@@ -169,6 +192,12 @@ export function TodosPage() {
                     </button>
                     {todo.status !== 'Completed' && (
                       <button
+                        disabled={completedSteps < checklist.length}
+                        title={
+                          completedSteps < checklist.length
+                            ? 'Complete every checklist step first.'
+                            : undefined
+                        }
                         onClick={async () => {
                           await completeTodo(todo.id);
                         }}
@@ -203,6 +232,12 @@ export function TodosPage() {
                   <strong>{item.title}</strong>
                   <span>{new Date(item.completedAt).toLocaleString()}</span>
                   <small>{item.purpose}</small>
+                  {item.checklist && item.checklist.length > 0 && (
+                    <small>
+                      {item.checklist.filter((step) => step.completed).length} of{' '}
+                      {item.checklist.length} steps completed
+                    </small>
+                  )}
                 </div>
               ))}
             </div>
@@ -250,8 +285,18 @@ export function TodosPage() {
                 alert('Choose a scheduled start or due time for a repeating todo.');
                 return;
               }
+              if (
+                edit.status === 'Completed' &&
+                (edit.checklist ?? []).some((item) => !item.completed)
+              ) {
+                alert('Complete every checklist step before completing this todo.');
+                return;
+              }
               await db.todos.put({
                 ...edit,
+                checklist: (edit.checklist ?? [])
+                  .map((item) => ({ ...item, text: item.text.trim() }))
+                  .filter((item) => item.text.length > 0),
                 updatedAt: now(),
                 snoozedUntil: undefined,
                 completedAt: edit.status === 'Completed' ? (edit.completedAt ?? now()) : undefined,
@@ -282,6 +327,91 @@ export function TodosPage() {
                 onChange={(description) => setEdit({ ...edit, description })}
               />
             </Field>
+            <fieldset>
+              <legend>Checklist steps</legend>
+              <p className="muted">
+                Add the ordered steps for a routine or project. Repeating todos reset these after
+                preserving the completed occurrence.
+              </p>
+              <div className="checklist-editor">
+                {(edit.checklist ?? []).map((item, index, checklist) => (
+                  <div key={item.id}>
+                    <label>
+                      <span className="sr-only">Step {index + 1}</span>
+                      <input
+                        value={item.text}
+                        placeholder={`Step ${index + 1}`}
+                        onChange={(event) =>
+                          setEdit({
+                            ...edit,
+                            checklist: checklist.map((candidate) =>
+                              candidate.id === item.id
+                                ? { ...candidate, text: event.target.value }
+                                : candidate,
+                            ),
+                          })
+                        }
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      disabled={index === 0}
+                      aria-label={`Move step ${index + 1} up`}
+                      onClick={() => {
+                        const moved = [...checklist];
+                        [moved[index - 1], moved[index]] = [moved[index]!, moved[index - 1]!];
+                        setEdit({ ...edit, checklist: moved });
+                      }}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      disabled={index === checklist.length - 1}
+                      aria-label={`Move step ${index + 1} down`}
+                      onClick={() => {
+                        const moved = [...checklist];
+                        [moved[index], moved[index + 1]] = [moved[index + 1]!, moved[index]!];
+                        setEdit({ ...edit, checklist: moved });
+                      }}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="danger compact"
+                      aria-label={`Remove step ${index + 1}`}
+                      onClick={() => {
+                        if (item.text && !confirm(`Remove checklist step “${item.text}”?`)) return;
+                        setEdit({
+                          ...edit,
+                          checklist: checklist.filter((candidate) => candidate.id !== item.id),
+                        });
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  setEdit({
+                    ...edit,
+                    checklist: [
+                      ...(edit.checklist ?? []),
+                      { id: uid(), text: '', completed: false },
+                    ],
+                  })
+                }
+              >
+                + Add checklist step
+              </button>
+            </fieldset>
             <div className="form-grid">
               <Field label="Status">
                 <select

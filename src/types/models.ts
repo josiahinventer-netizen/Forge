@@ -75,6 +75,13 @@ export interface TodoRecurrence {
   interval: number;
 }
 
+export interface TodoChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  completedAt?: string;
+}
+
 export interface Todo extends BaseRecord {
   title: string;
   description: string;
@@ -92,6 +99,7 @@ export interface Todo extends BaseRecord {
   completedAt?: string;
   recurrence?: TodoRecurrence;
   snoozedUntil?: string;
+  checklist?: TodoChecklistItem[];
 }
 
 export type ReminderAction = 'Acknowledged' | 'Snoozed' | 'Completed';
@@ -117,6 +125,7 @@ export interface TodoOccurrence extends BaseRecord {
   dueAt?: string;
   completedAt: string;
   completionNotes: string;
+  checklist?: TodoChecklistItem[];
 }
 
 export type PracticeKind =

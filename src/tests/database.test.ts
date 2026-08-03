@@ -230,4 +230,37 @@ describe('ForgeDatabase', () => {
     expect(await migrated.todoOccurrences.count()).toBe(0);
     expect(await migrated.reminderEvents.count()).toBe(0);
   });
+
+  it('migrates schema 11 todos and occurrence history to empty checklists', async () => {
+    const name = `forge-checklist-migration-${crypto.randomUUID()}`;
+    const legacy = new Dexie(name);
+    legacy.version(11).stores({
+      todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
+      todoOccurrences: 'id, todoId, completedAt, archived, updatedAt, *tags',
+    });
+    await legacy.table('todos').put({
+      id: 'legacy-todo',
+      title: 'Legacy routine',
+      status: 'Open',
+      priority: 'Normal',
+      archived: false,
+      updatedAt: '2026-08-01T00:00:00.000Z',
+      tags: [],
+    });
+    await legacy.table('todoOccurrences').put({
+      id: 'legacy-occurrence',
+      todoId: 'legacy-todo',
+      completedAt: '2026-08-01T00:00:00.000Z',
+      archived: false,
+      updatedAt: '2026-08-01T00:00:00.000Z',
+      tags: [],
+    });
+    legacy.close();
+
+    const migrated = new ForgeDatabase(name);
+    databases.push(migrated);
+    await migrated.open();
+    expect((await migrated.todos.get('legacy-todo'))?.checklist).toEqual([]);
+    expect((await migrated.todoOccurrences.get('legacy-occurrence'))?.checklist).toEqual([]);
+  });
 });

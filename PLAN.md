@@ -91,6 +91,7 @@
 - [x] Browser speech dictation for fast todo title, purpose, and detail entry
 - [x] Persistent reminder detection with acknowledge, ten-minute snooze, and complete actions
 - [x] Synchronized reminder history so missed reminders survive app restarts
+- [x] Ordered todo checklists with live step completion, recurring reset, and preserved snapshots
 
 ## Stage 4 — User-owned sync server foundation (in progress)
 

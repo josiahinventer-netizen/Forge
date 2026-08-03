@@ -341,6 +341,16 @@ mcp.registerTool(
       linkedResourceIds: z.array(z.string()).optional(),
       linkedCapabilityIds: z.array(z.string()).optional(),
       completionNotes: z.string().optional(),
+      checklist: z
+        .array(
+          z.object({
+            id: z.string().min(1).optional(),
+            text: z.string().min(1),
+            completed: z.boolean().optional(),
+            completedAt: z.string().datetime().optional(),
+          }),
+        )
+        .optional(),
       tags: z.array(z.string()).optional(),
       archived: z.boolean().optional(),
       confirm: z.literal(true),
@@ -355,10 +365,16 @@ mcp.registerTool(
   async (input) => {
     if (!input.id && !input.purpose?.trim())
       throw new Error('Purpose is required when creating a todo.');
+    const checklist = input.checklist?.map((step) => ({
+      ...step,
+      id: step.id ?? randomUUID(),
+      completed: step.completed ?? false,
+    }));
+    const normalizedInput = checklist ? { ...input, checklist } : input;
     return saveRecord(
       'forge_save_todo',
       'todo',
-      input,
+      normalizedInput,
       {
         description: '',
         purpose: '',
@@ -368,6 +384,7 @@ mcp.registerTool(
         linkedResourceIds: [],
         linkedCapabilityIds: [],
         completionNotes: '',
+        checklist: [],
       },
       'title',
     );

@@ -15,6 +15,8 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Daily, weekly, and monthly recurring todos that advance after completion while preserving occurrence history
 - Opt-in system notifications and browser speech dictation for fast todo capture
 - Persistent in-app reminders with acknowledge, snooze, complete, and synchronized reminder history
+- Ordered todo checklists for routines and projects, with completion blocking while steps remain,
+  preserved recurring snapshots, and fresh unchecked steps for the next occurrence
 - Purpose-aware activity/evidence ledger linking real work to existing records, with distinct practice types
 - Explainable skill activity summaries and closest-capability next steps without opaque automatic level awards
 - Selectable 7-, 30-, and 90-day progress reviews showing study versus practical work, outcomes,
@@ -26,7 +28,7 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Live Available, Partially available, or Blocked calculations
 - Structured and plain-language missing requirements with a recommended next step
 - Dashboard capability counts derived from current records
-- Versioned Dexie schema with tested migrations through schema version 11
+- Versioned Dexie schema with tested migrations through schema version 12
 - JSON export containing app/schema metadata plus active and archived records
 - Validated JSON import with conflict-safe merge and explicitly confirmed replacement
 - PWA manifest, service worker, application-shell caching, and offline indicator
@@ -237,4 +239,4 @@ Imports are parsed and fully validated before any IndexedDB write. This remains 
 - `src/tests` — database, migration, and export tests
 
 Current app version: **1.0.0**  
-Current database schema version: **11**
+Current database schema version: **12**

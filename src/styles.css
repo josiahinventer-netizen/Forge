@@ -97,6 +97,21 @@ summary:focus-visible {
   color: var(--danger);
   border-color: var(--danger);
 }
+.compact {
+  min-height: 44px;
+  padding: 0.45rem 0.65rem;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .icon {
   border: 0;
   background: transparent;
@@ -838,6 +853,33 @@ form > button:last-child {
   color: var(--text);
   font-size: 1.25rem;
 }
+.todo-checklist {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+.todo-checklist p {
+  margin: 0;
+}
+.completed-step {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.checklist-editor {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+.checklist-editor > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 0.4rem;
+  align-items: center;
+}
+.checklist-editor input {
+  width: 100%;
+}
+
 @media (max-width: 850px) {
   aside {
     display: none;
@@ -901,6 +943,12 @@ form > button:last-child {
   }
 }
 @media (max-width: 520px) {
+  .checklist-editor > div {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .checklist-editor .danger {
+    grid-column: 1 / -1;
+  }
   .speech-input {
     grid-template-columns: 1fr;
   }
