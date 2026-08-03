@@ -69,9 +69,36 @@ The server creates `%LOCALAPPDATA%\Forge\forge-sync.sqlite` on Windows, outside 
 - Preserved stale or same-time conflicting versions in the local `sync_conflicts` archive
 - Account-isolated conflict review that compares changed fields and can deliberately keep the
   current record or restore the preserved version
+- Automatic at-most-daily AES-256-GCM snapshots of the local SQLite database, encrypted with a
+  computer-local random key
 - A strict GitHub Pages origin allowlist
 
-No personal records are stored on GitHub. Google Drive archive mirroring is optional and is enabled on this computer to provide an off-device backup and a ChatGPT-readable bridge; the local SQLite database remains authoritative. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge asks browsers not to save or autofill the local-account password; browser password managers remain separately controlled by the user. Forge still needs recovery codes, encrypted automatic backups, and backup-retention controls. Do not expose port `8787` through a router or firewall.
+No personal records are stored on GitHub. Google Drive archive mirroring is optional and is enabled on this computer to provide an off-device backup and a ChatGPT-readable bridge; the local SQLite database remains authoritative. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge asks browsers not to save or autofill the local-account password; browser password managers remain separately controlled by the user. Forge still needs recovery codes and backup-retention controls. Do not expose port `8787` through a router or firewall.
+
+### Encrypted computer backups
+
+When the sync server starts, and after later accepted changes, Forge checks whether a daily backup
+is due. It serializes SQLite consistently in memory and writes an encrypted, versioned snapshot to
+`%LOCALAPPDATA%\Forge\backups`. The random 256-bit key remains at
+`%LOCALAPPDATA%\Forge\backup.key`; plaintext database snapshots are never written during backup.
+Backups currently accumulate without automatic deletion so normal operation never destroys the
+only remaining older copy. Retention controls are still planned.
+
+The encrypted files are unusable without `backup.key`. Back up that key somewhere you physically
+control, separate from the repository. Never upload it to GitHub or place it beside shared backup
+files.
+
+Recovery is intentionally guarded. Stop the Forge sync server, then run:
+
+```powershell
+$env:FORGE_BACKUP_RESTORE = 'confirm'
+npm run backup:restore -- 'C:\path\to\forge-sync-....sqlite.enc.json'
+Remove-Item Env:FORGE_BACKUP_RESTORE
+```
+
+Forge validates authenticated encryption and the SQLite header before replacement. It renames the
+current database to a timestamped `forge-sync.sqlite.before-*` file, so the pre-restore state remains
+recoverable, and then installs the restored database. Start the sync server again afterward.
 
 ## Google Drive and ChatGPT bridge
 

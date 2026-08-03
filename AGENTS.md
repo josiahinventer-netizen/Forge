@@ -90,6 +90,9 @@ Fix all failures before reporting completion. Do not describe a task as complete
 - `npm run server:lan` — run the TLS-configured LAN server using certificates under the local Forge application-data directory; never use it before device trust is configured.
 - `npm run mcp:start` — run Forge's local stdio MCP server; requires `FORGE_MCP_USERNAME` and uses `FORGE_MCP_WRITE=enabled` to permit confirmed writes.
 - `npm run drive:sync` — run one Google Drive archive/inbox synchronization pass; uses `FORGE_DRIVE_DIR` and `FORGE_DRIVE_USERNAME` when provided.
+- `npm run backup:restore -- <file>` — restore an authenticated encrypted SQLite snapshot only when
+  the sync server is stopped and `FORGE_BACKUP_RESTORE=confirm` is set; preserves the previous
+  database beside the restored one.
 - `npm test` — run the Vitest suite once.
 - `npm run test:watch` — run Vitest in watch mode during development.
 - `npm run lint` — run ESLint across the repository.

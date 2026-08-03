@@ -11,6 +11,7 @@
     "server:lan": "tsx server/lan.ts",
     "mcp:start": "tsx server/mcp.ts",
     "drive:sync": "tsx server/drive.ts",
+    "backup:restore": "tsx server/restoreBackup.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",

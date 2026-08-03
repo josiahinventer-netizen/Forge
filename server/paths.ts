@@ -8,6 +8,8 @@ const platformDefault =
 
 export const forgeDataDirectory = resolve(process.env.FORGE_DATA_DIR ?? platformDefault);
 export const forgeDatabasePath = join(forgeDataDirectory, 'forge-sync.sqlite');
+export const forgeBackupDirectory = join(forgeDataDirectory, 'backups');
+export const forgeBackupKeyPath = join(forgeDataDirectory, 'backup.key');
 export const forgeCertificatePath = join(forgeDataDirectory, 'certs', 'forge-local.pem');
 export const forgeCertificateKeyPath = join(forgeDataDirectory, 'certs', 'forge-local-key.pem');
 export const forgeDriveDirectory = resolve(
