@@ -8,6 +8,8 @@ import {
 import { createServer as createHttpsServer } from 'node:https';
 import type { AddressInfo } from 'node:net';
 import { ForgeSyncStore, validateSyncChange } from './store.js';
+import { EncryptedBackupManager } from './backup.js';
+import { dirname, join } from 'node:path';
 
 export interface ForgeServerOptions {
   databasePath: string;
@@ -57,6 +59,14 @@ export function createForgeServer(options: ForgeServerOptions) {
     throw new Error('Both TLS certificate and key paths are required.');
   }
   const store = new ForgeSyncStore(options.databasePath);
+  const backup =
+    options.databasePath === ':memory:'
+      ? null
+      : new EncryptedBackupManager(
+          store.database,
+          join(dirname(options.databasePath), 'backups'),
+          join(dirname(options.databasePath), 'backup.key'),
+        );
   const changes = new EventEmitter();
   changes.setMaxListeners(100);
   const allowedOrigin = options.allowedOrigin ?? 'https://josiahinventer-netizen.github.io';
@@ -117,7 +127,10 @@ export function createForgeServer(options: ForgeServerOptions) {
           return;
         }
         const result = store.push(accountId, body.changes);
-        if (result.accepted > 0) changes.emit(accountId);
+        if (result.accepted > 0) {
+          changes.emit(accountId);
+          void backup?.backupIfDue().catch(() => undefined);
+        }
         json(response, 200, result);
         return;
       }
@@ -208,6 +221,7 @@ export function createForgeServer(options: ForgeServerOptions) {
     store,
     server,
     async start() {
+      await backup?.backupIfDue();
       await new Promise<void>((resolve, reject) => {
         server.once('error', reject);
         server.listen(options.port ?? 8787, host, () => resolve());

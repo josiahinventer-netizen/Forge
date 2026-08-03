@@ -111,7 +111,7 @@
 - [x] Immediate local-edit detection and authenticated server change notifications
 - [x] Preserve rejected conflicting record versions in the local SQLite archive
 - [x] Conflict-history review and manual resolution UI
-- [ ] Encrypted automatic local backups
+- [x] Encrypted automatic local SQLite backups with guarded recovery tooling
 - [x] Permission-scoped local MCP read/write tools and account-isolated AI audit log
 - [x] Versioned Google Drive archive snapshots with Excel-compatible CSV views
 - [x] Validated, idempotent Google Drive inbox for confirmed ChatGPT save requests
