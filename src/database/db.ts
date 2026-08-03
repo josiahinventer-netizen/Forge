@@ -11,7 +11,7 @@ import type {
   ReminderEvent,
 } from '../types/models';
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
@@ -182,6 +182,37 @@ export class ForgeDatabase extends Dexie {
       activities: 'id, title, occurredAt, archived, updatedAt, *tags',
       syncSettings: 'id',
     });
+
+    // V12 adds ordered checklist steps and preserves completed recurring snapshots.
+    this.version(12)
+      .stores({
+        skills: 'id, name, category, archived, updatedAt, *tags',
+        resources:
+          'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
+        capabilities: 'id, name, category, archived, updatedAt, *tags',
+        attachments:
+          'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+        todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
+        todoOccurrences: 'id, todoId, completedAt, archived, updatedAt, *tags',
+        reminderEvents:
+          'id, todoId, occurrenceKey, detectedAt, acknowledgedAt, action, archived, updatedAt',
+        activities: 'id, title, occurredAt, archived, updatedAt, *tags',
+        syncSettings: 'id',
+      })
+      .upgrade(async (transaction) => {
+        await transaction
+          .table<Todo>('todos')
+          .toCollection()
+          .modify((todo) => {
+            todo.checklist ??= [];
+          });
+        await transaction
+          .table<TodoOccurrence>('todoOccurrences')
+          .toCollection()
+          .modify((occurrence) => {
+            occurrence.checklist ??= [];
+          });
+      });
   }
 }
 

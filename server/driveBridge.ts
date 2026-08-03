@@ -103,6 +103,16 @@ const todoOperation = z.object({
     linkedResourceIds: z.array(z.string()).optional(),
     linkedCapabilityIds: z.array(z.string()).optional(),
     completionNotes: z.string().optional(),
+    checklist: z
+      .array(
+        z.object({
+          id: z.string().min(1).optional(),
+          text: z.string().min(1),
+          completed: z.boolean().optional(),
+          completedAt: z.string().datetime().optional(),
+        }),
+      )
+      .optional(),
     recurrence: z
       .object({
         frequency: z.enum(['Daily', 'Weekly', 'Monthly']),
@@ -211,6 +221,7 @@ const defaults: Record<SyncEntityType, Record<string, unknown>> = {
     linkedResourceIds: [],
     linkedCapabilityIds: [],
     completionNotes: '',
+    checklist: [],
   },
   capability: { description: '', category: 'General', requiredSkills: [], requiredResources: [] },
   activity: {
@@ -377,6 +388,7 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         'dueAt',
         'estimatedMinutes',
         'completedAt',
+        'checklist',
         'archived',
         'updatedAt',
       ],
@@ -390,6 +402,7 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         item?.dueAt,
         item?.estimatedMinutes,
         item?.completedAt,
+        JSON.stringify(item?.checklist ?? []),
         item?.archived,
         item?.updatedAt,
       ]),
@@ -428,6 +441,7 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         'dueAt',
         'completedAt',
         'completionNotes',
+        'checklist',
       ],
       todoOccurrences.map((item) => [
         item?.id,
@@ -438,6 +452,7 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         item?.dueAt,
         item?.completedAt,
         item?.completionNotes,
+        JSON.stringify(item?.checklist ?? []),
       ]),
     ),
     'Forge Reminder History.csv': csv(
@@ -498,12 +513,31 @@ function buildChanges(
       tags: item.record.tags ?? existing?.tags ?? [],
       archived: item.record.archived ?? existing?.archived ?? false,
     };
+    const recordFields: Record<string, unknown> = record;
+    if (item.entityType === 'todo' && Array.isArray(recordFields.checklist)) {
+      const checklist = recordFields.checklist as Array<{
+        id?: string;
+        text: string;
+        completed?: boolean;
+        completedAt?: string;
+      }>;
+      recordFields.checklist = checklist.map((step, stepIndex) => ({
+        ...step,
+        id:
+          step.id ??
+          `drive-checklist-${createHash('sha256')
+            .update(`${request.requestId}:${index}:${stepIndex}`)
+            .digest('hex')
+            .slice(0, 32)}`,
+        completed: step.completed ?? false,
+      }));
+    }
     return {
       entityType: item.entityType,
       recordId: id,
       updatedAt: timestamp,
       deleted: false,
-      payload: record,
+      payload: recordFields,
     };
   });
   const current = new Map(
@@ -571,7 +605,7 @@ export class ForgeDriveBridge {
       mkdirSync(join(this.options.driveDirectory, folder), { recursive: true });
     atomicWrite(
       join(this.options.driveDirectory, 'CHATGPT-FORGE-INSTRUCTIONS.md'),
-      `# Forge archive instructions\n\nRead **Forge Archive.json** before changing Forge. When Josiah clearly says to add or log something in Forge, that statement authorizes one non-destructive create request: correct obvious spelling and capitalization, check the archive for duplicates, infer only conservative defaults, and immediately create one file named \`forge-request-<unique-id>.json\` in **Inbox** using **Forge Inbox Example.json** as the schema. Do not ask for a second confirmation unless the intended record type or identity is genuinely ambiguous. Preserve uncertainty in notes instead of inventing experience, quantities, condition, or proficiency. A todo requires a genuine purpose explaining why it matters; if Josiah has not provided one, ask rather than inventing it. Ask before changing an existing record or archiving anything. Never edit archive files and never request deletion; archive records instead. Each request needs a new unique requestId. After writing a request, report the normalized name and fields submitted.\n`,
+      `# Forge archive instructions\n\nRead **Forge Archive.json** before changing Forge. When Josiah clearly says to add or log something in Forge, that statement authorizes one non-destructive create request: correct obvious spelling and capitalization, check the archive for duplicates, infer only conservative defaults, and immediately create one file named \`forge-request-<unique-id>.json\` in **Inbox** using **Forge Inbox Example.json** as the schema. Do not ask for a second confirmation unless the intended record type or identity is genuinely ambiguous. Preserve uncertainty in notes instead of inventing experience, quantities, condition, or proficiency. A todo requires a genuine purpose explaining why it matters; if Josiah has not provided one, ask rather than inventing it. When the user provides steps for a todo or routine, save them in the ordered checklist instead of creating unrelated records. Ask before changing an existing record or archiving anything. Never edit archive files and never request deletion; archive records instead. Each request needs a new unique requestId. After writing a request, report the normalized name and fields submitted.\n`,
     );
     atomicWrite(
       join(this.options.driveDirectory, 'Forge Inbox Example.json'),

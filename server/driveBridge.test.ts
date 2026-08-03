@@ -129,6 +129,7 @@ describe('Drive inbox', () => {
             title: 'Practice welding',
             purpose: 'Build practical skill',
             priority: 'High',
+            checklist: [{ text: 'Set up welder' }, { text: 'Practice one bead' }],
           },
         },
         {
@@ -166,6 +167,14 @@ describe('Drive inbox', () => {
     expect(store.archiveRecord(account.id, 'todo', 'todo-practice')?.payload?.purpose).toBe(
       'Build practical skill',
     );
+    expect(store.archiveRecord(account.id, 'todo', 'todo-practice')?.payload?.checklist).toEqual([
+      expect.objectContaining({ text: 'Set up welder', completed: false, id: expect.any(String) }),
+      expect.objectContaining({
+        text: 'Practice one bead',
+        completed: false,
+        id: expect.any(String),
+      }),
+    ]);
     expect(store.archiveRecord(account.id, 'activity', 'activity-welding')?.payload?.title).toBe(
       'Study welding safety',
     );

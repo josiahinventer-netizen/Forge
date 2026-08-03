@@ -36,6 +36,7 @@ export function occurrenceFromTodo(todo: Todo, completedAt: string, id: string):
     dueAt: todo.dueAt,
     completedAt,
     completionNotes: todo.completionNotes,
+    checklist: (todo.checklist ?? []).map((item) => ({ ...item })),
     createdAt: completedAt,
     updatedAt: completedAt,
     tags: [...todo.tags],

@@ -86,6 +86,7 @@ describe('JSON export', () => {
       linkedResourceIds: [],
       linkedCapabilityIds: [],
       completionNotes: '',
+      checklist: [{ id: 'measure', text: 'Measure boards', completed: false }],
       createdAt: '2026-01-01',
       updatedAt: '2026-01-01',
       tags: [],
@@ -124,6 +125,14 @@ describe('JSON export', () => {
       purpose: 'Practice carpentry',
       completedAt: '2026-01-03',
       completionNotes: 'Done',
+      checklist: [
+        {
+          id: 'measure',
+          text: 'Measure boards',
+          completed: true,
+          completedAt: '2026-01-03',
+        },
+      ],
       createdAt: '2026-01-03',
       updatedAt: '2026-01-03',
       tags: [],
@@ -156,8 +165,10 @@ describe('JSON export', () => {
     expect(parsed.records.capabilities[0]?.requiredSkills[0]?.skillId).toBe('active');
     expect(parsed.records.attachments?.[0]?.ownerId).toBe('active');
     expect(parsed.records.todos?.[0]?.purpose).toBe('Practice carpentry');
+    expect(parsed.records.todos?.[0]?.checklist?.[0]?.text).toBe('Measure boards');
     expect(parsed.records.activities?.[0]?.skillPractice[0]?.skillId).toBe('active');
     expect(parsed.records.todoOccurrences?.[0]?.todoId).toBe('todo');
+    expect(parsed.records.todoOccurrences?.[0]?.checklist?.[0]?.completed).toBe(true);
     expect(parsed.records.reminderEvents?.[0]?.action).toBe('Completed');
   });
 });

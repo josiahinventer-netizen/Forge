@@ -67,6 +67,12 @@ export function TodoReminder() {
           Acknowledge
         </button>
         <button
+          disabled={(visible.checklist ?? []).some((item) => !item.completed)}
+          title={
+            (visible.checklist ?? []).some((item) => !item.completed)
+              ? 'Open the todo and complete its checklist first.'
+              : undefined
+          }
           onClick={async () => {
             const saved = event ?? (await ensureReminderEvent(visible));
             await completeTodo(visible.id, db, saved.id);

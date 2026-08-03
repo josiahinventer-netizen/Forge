@@ -123,6 +123,21 @@ export function isAttachment(value: unknown): value is EvidenceAttachment {
 
 export function isTodo(value: unknown): value is Todo {
   if (!isRecord(value) || !hasBaseRecord(value)) return false;
+  const validChecklist =
+    value.checklist === undefined ||
+    (Array.isArray(value.checklist) &&
+      value.checklist.every(
+        (item) =>
+          isRecord(item) &&
+          typeof item.id === 'string' &&
+          item.id.length > 0 &&
+          typeof item.text === 'string' &&
+          item.text.length > 0 &&
+          typeof item.completed === 'boolean' &&
+          (item.completedAt === undefined || isDate(item.completedAt)),
+      ) &&
+      new Set(value.checklist.map((item) => (isRecord(item) ? item.id : ''))).size ===
+        value.checklist.length);
   return (
     typeof value.title === 'string' &&
     value.title.length > 0 &&
@@ -146,7 +161,8 @@ export function isTodo(value: unknown): value is Todo {
         typeof value.recurrence.interval === 'number' &&
         Number.isInteger(value.recurrence.interval) &&
         value.recurrence.interval >= 1)) &&
-    (value.snoozedUntil === undefined || isDate(value.snoozedUntil))
+    (value.snoozedUntil === undefined || isDate(value.snoozedUntil)) &&
+    validChecklist
   );
 }
 
@@ -176,7 +192,17 @@ export function isTodoOccurrence(value: unknown): value is TodoOccurrence {
     (value.scheduledFor === undefined || isDate(value.scheduledFor)) &&
     (value.dueAt === undefined || isDate(value.dueAt)) &&
     isDate(value.completedAt) &&
-    typeof value.completionNotes === 'string'
+    typeof value.completionNotes === 'string' &&
+    (value.checklist === undefined ||
+      (Array.isArray(value.checklist) &&
+        value.checklist.every(
+          (item) =>
+            isRecord(item) &&
+            typeof item.id === 'string' &&
+            typeof item.text === 'string' &&
+            typeof item.completed === 'boolean' &&
+            (item.completedAt === undefined || isDate(item.completedAt)),
+        )))
   );
 }
 
