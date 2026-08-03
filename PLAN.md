@@ -54,7 +54,7 @@
 
 ## Later stages (not started)
 
-1. Longer-term activity trends and selectable review periods
+1. Longer-term activity trends beyond the implemented selectable 7-, 30-, and 90-day comparison
 2. Bored Mode recommendation engine
 3. Knowledge entries and evidence-aware progression scoring
 4. Onboarding, themes, and safe local-data clearing
