@@ -166,7 +166,22 @@ export interface MindEdge extends BaseRecord {
 
 export type TodoStatus = 'Open' | 'In progress' | 'Completed';
 export type TodoPriority = 'Low' | 'Normal' | 'High' | 'Urgent';
+export type WorkState = 'actionable' | 'waiting' | 'blocked' | 'scheduled' | 'deferred' | 'someday';
 export type RecurrenceFrequency = 'Daily' | 'Weekly' | 'Monthly';
+
+export interface ExecutionMetadata {
+  workState: WorkState;
+  nextAction?: string;
+  waitingOn?: string;
+  waitingCondition?: string;
+  blockedReason?: string;
+  blockedBy: EntityReference[];
+  reviewAt?: string;
+  availableAfter?: string;
+  deadlineKind?: 'hard' | 'target';
+  urgencyReason?: string;
+  contexts: string[];
+}
 
 export interface TodoRecurrence {
   frequency: RecurrenceFrequency;
@@ -198,6 +213,7 @@ export interface Todo extends BaseRecord {
   recurrence?: TodoRecurrence;
   snoozedUntil?: string;
   checklist?: TodoChecklistItem[];
+  execution?: ExecutionMetadata;
 }
 
 export type ReminderAction = 'Acknowledged' | 'Snoozed' | 'Completed';
@@ -260,6 +276,14 @@ export const PRACTICE_KINDS: readonly PracticeKind[] = [
 ];
 
 export const TODO_PRIORITIES: readonly TodoPriority[] = ['Low', 'Normal', 'High', 'Urgent'];
+export const WORK_STATES: readonly WorkState[] = [
+  'actionable',
+  'waiting',
+  'blocked',
+  'scheduled',
+  'deferred',
+  'someday',
+];
 
 export const EVIDENCE_KINDS: readonly EvidenceKind[] = [
   'Item photo',

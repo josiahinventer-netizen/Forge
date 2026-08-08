@@ -1002,6 +1002,95 @@ form > button:last-child {
 .graph-entity small {
   color: var(--muted);
 }
+.today-view {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.today-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.today-heading h2 {
+  margin: 0.2rem 0 0;
+}
+.focus-chip {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent2);
+}
+.today-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.today-actions .card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+}
+.today-actions .primary-action {
+  border-color: var(--accent);
+  box-shadow: inset 0 3px var(--accent);
+}
+.rank {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.execution-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+}
+.execution-summary a {
+  display: grid;
+  gap: 0.2rem;
+  min-height: 64px;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--panel2);
+}
+.execution-summary span {
+  color: var(--muted);
+}
+.today-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.today-progress > span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.execution-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.work-waiting,
+.work-scheduled {
+  color: #e8c779;
+}
+.work-blocked {
+  color: #f1948a;
+}
+.work-actionable {
+  color: var(--accent2);
+}
 
 @media (max-width: 850px) {
   aside {
@@ -1054,6 +1143,9 @@ form > button:last-child {
   .dashboard-grid,
   .settings-grid,
   .mind-layout {
+    grid-template-columns: 1fr;
+  }
+  .today-actions {
     grid-template-columns: 1fr;
   }
   .mind-browser {
@@ -1127,6 +1219,12 @@ form > button:last-child {
   }
   .mind-focus-heading {
     flex-direction: column;
+  }
+  .today-heading {
+    flex-direction: column;
+  }
+  .execution-summary {
+    grid-template-columns: 1fr 1fr;
   }
   .detail-requirements > div {
     align-items: flex-start;

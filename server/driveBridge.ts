@@ -218,6 +218,21 @@ const todoOperation = z.object({
     linkedResourceIds: z.array(z.string()).optional(),
     linkedCapabilityIds: z.array(z.string()).optional(),
     completionNotes: z.string().optional(),
+    execution: z
+      .object({
+        workState: z.enum(['actionable', 'waiting', 'blocked', 'scheduled', 'deferred', 'someday']),
+        nextAction: z.string().optional(),
+        waitingOn: z.string().optional(),
+        waitingCondition: z.string().optional(),
+        blockedReason: z.string().optional(),
+        blockedBy: z.array(graphEntityReference).optional(),
+        reviewAt: z.string().datetime().optional(),
+        availableAfter: z.string().datetime().optional(),
+        deadlineKind: z.enum(['hard', 'target']).optional(),
+        urgencyReason: z.string().optional(),
+        contexts: z.array(z.string()).optional(),
+      })
+      .optional(),
     checklist: z
       .array(
         z.object({
@@ -349,6 +364,7 @@ const defaults: Record<SyncEntityType, Record<string, unknown>> = {
     linkedCapabilityIds: [],
     completionNotes: '',
     checklist: [],
+    execution: { workState: 'actionable', blockedBy: [], contexts: [] },
   },
   capability: { description: '', category: 'General', requiredSkills: [], requiredResources: [] },
   activity: {
@@ -487,7 +503,118 @@ export function createAssistantContext(archive: ReturnType<typeof createDriveArc
       ...(item.scheduledFor === undefined ? {} : { scheduledFor: item.scheduledFor }),
       ...(item.dueAt === undefined ? {} : { dueAt: item.dueAt }),
       ...(item.estimatedMinutes === undefined ? {} : { estimatedMinutes: item.estimatedMinutes }),
+      ...(item.execution === undefined ? {} : { execution: item.execution }),
     }));
+  const todoById = new Map(todos.map((item) => [text(item.id), item]));
+  const nodeById = new Map(mindNodes.map((item) => [text(item.id), item]));
+  const currentFocus = mindNodes
+    .filter(
+      (item) =>
+        ['goal', 'project'].includes(text(item.type)) &&
+        Array.isArray(item.tags) &&
+        item.tags.some((tag) => String(tag).toLowerCase() === 'current-focus'),
+    )
+    .map(compactMindNode);
+  const reachFromTodo = (todoId: string) => {
+    const queue = [`todo:${todoId}`];
+    const seen = new Set(queue);
+    const labels: string[] = [];
+    const focusLabels: string[] = [];
+    const useful = new Set([
+      'supports',
+      'supports goal',
+      'contributes to',
+      'part of',
+      'motivated by',
+    ]);
+    for (let depth = 0; depth < 4 && queue.length; depth += 1) {
+      for (const current of queue.splice(0)) {
+        for (const edge of mindEdges) {
+          const source = edge.source as ArchivePayload | undefined;
+          const target = edge.target as ArchivePayload | undefined;
+          if (
+            !useful.has(text(edge.relationshipType)) ||
+            `${text(source?.entityType)}:${text(source?.entityId)}` !== current
+          )
+            continue;
+          const targetKey = `${text(target?.entityType)}:${text(target?.entityId)}`;
+          if (seen.has(targetKey)) continue;
+          seen.add(targetKey);
+          queue.push(targetKey);
+          if (target?.entityType === 'mindNode') {
+            const node = nodeById.get(text(target.entityId));
+            if (node) {
+              labels.push(text(node.title));
+              if (
+                Array.isArray(node.tags) &&
+                node.tags.some((tag) => String(tag).toLowerCase() === 'current-focus')
+              )
+                focusLabels.push(text(node.title));
+            }
+          }
+        }
+      }
+    }
+    return { labels: [...new Set(labels)], focusLabels: [...new Set(focusLabels)] };
+  };
+  const contextNow = Date.parse(archive.generatedAt);
+  const stateOf = (item: ArchivePayload) =>
+    text((item.execution as ArchivePayload | undefined)?.workState) || 'actionable';
+  const waitingItems = compactTodos.filter((item) => stateOf(todoById.get(item.id)!) === 'waiting');
+  const blockedItems = compactTodos.filter((item) => stateOf(todoById.get(item.id)!) === 'blocked');
+  const upcomingDeadlines = compactTodos
+    .filter((item) => item.dueAt)
+    .map((item) => ({
+      ...item,
+      daysRemaining: Math.ceil((Date.parse(String(item.dueAt)) - contextNow) / 86_400_000),
+    }))
+    .sort((left, right) => left.daysRemaining - right.daysRemaining)
+    .slice(0, 15);
+  const actionableNow = compactTodos
+    .filter((item) => {
+      const source = todoById.get(item.id)!;
+      const execution = source.execution as ArchivePayload | undefined;
+      const available = text(execution?.availableAfter) || text(source.scheduledFor);
+      return (
+        stateOf(source) === 'actionable' && (!available || Date.parse(available) <= contextNow)
+      );
+    })
+    .map((item) => {
+      const source = todoById.get(item.id)!;
+      const execution = source.execution as ArchivePayload | undefined;
+      const reach = reachFromTodo(item.id);
+      const daysRemaining = item.dueAt
+        ? Math.ceil((Date.parse(String(item.dueAt)) - contextNow) / 86_400_000)
+        : undefined;
+      const reasons = [
+        ...(daysRemaining !== undefined && daysRemaining <= 7
+          ? [daysRemaining < 0 ? 'past deadline' : `deadline in ${daysRemaining} days`]
+          : []),
+        ...(reach.focusLabels.length
+          ? [`supports current focus: ${reach.focusLabels.join(', ')}`]
+          : []),
+        ...(reach.labels.length ? [`advances ${reach.labels.slice(0, 3).join(', ')}`] : []),
+        ...(text(execution?.urgencyReason) ? [text(execution?.urgencyReason)] : []),
+      ];
+      const score =
+        ({ Urgent: 35, High: 20, Normal: 10, Low: 0 }[item.priority as string] ?? 0) +
+        (daysRemaining === undefined
+          ? 0
+          : daysRemaining < 0
+            ? 100
+            : daysRemaining <= 1
+              ? 80
+              : daysRemaining <= 3
+                ? 55
+                : daysRemaining <= 7
+                  ? 30
+                  : 0) +
+        (reach.focusLabels.length ? 40 : 0) +
+        Math.min(reach.labels.length, 4) * 8;
+      return { ...item, score, reasons, unlocks: reach.labels };
+    })
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 10);
   const compactSkills = skills
     .sort(
       (left, right) =>
@@ -515,6 +642,19 @@ export function createAssistantContext(archive: ReturnType<typeof createDriveArc
       occurredAt: text(item.occurredAt),
       outcome: text(item.outcome),
     }));
+  const weekStart = Date.parse(archive.generatedAt) - 7 * 86_400_000;
+  const progressSummary = {
+    completedTodos: activePayloads(archive.records.todoOccurrences)
+      .filter((item) => Date.parse(text(item.completedAt)) >= weekStart)
+      .slice(0, 15)
+      .map((item) => ({
+        id: text(item.id),
+        title: text(item.title),
+        purpose: text(item.purpose),
+        completedAt: text(item.completedAt),
+      })),
+    activities: recentActivities.filter((item) => Date.parse(item.occurredAt) >= weekStart),
+  };
   const importantRelationships = mindEdges
     .filter((item) => {
       const source = item.source as ArchivePayload | undefined;
@@ -552,6 +692,7 @@ export function createAssistantContext(archive: ReturnType<typeof createDriveArc
     values: nodesOfType('value'),
     beliefs: nodesOfType('belief'),
     principles: nodesOfType('principle'),
+    currentFocus,
     activeGoals: nodesOfType('goal'),
     activeProjects: nodesOfType('project'),
     interests: nodesOfType('interest'),
@@ -559,8 +700,14 @@ export function createAssistantContext(archive: ReturnType<typeof createDriveArc
     openQuestions: nodesOfType('question'),
     knowledge: nodesOfType('knowledge', 30),
     activeTodos: compactTodos,
+    actionableNow,
+    waitingItems,
+    blockedItems,
+    upcomingDeadlines,
+    importantBottlenecks: actionableNow.filter((item) => item.unlocks.length > 0).slice(0, 5),
     relevantSkills: compactSkills,
     recentActivities,
+    progressSummary,
     importantRelationships,
     projectionLimits: {
       mindNodesPerSection: 20,
@@ -670,6 +817,17 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         'scheduledFor',
         'dueAt',
         'estimatedMinutes',
+        'workState',
+        'nextAction',
+        'waitingOn',
+        'waitingCondition',
+        'blockedReason',
+        'reviewAt',
+        'availableAfter',
+        'deadlineKind',
+        'urgencyReason',
+        'contexts',
+        'blockedBy',
         'completedAt',
         'checklist',
         'archived',
@@ -684,6 +842,17 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         item?.scheduledFor,
         item?.dueAt,
         item?.estimatedMinutes,
+        (item?.execution as Record<string, unknown> | undefined)?.workState,
+        (item?.execution as Record<string, unknown> | undefined)?.nextAction,
+        (item?.execution as Record<string, unknown> | undefined)?.waitingOn,
+        (item?.execution as Record<string, unknown> | undefined)?.waitingCondition,
+        (item?.execution as Record<string, unknown> | undefined)?.blockedReason,
+        (item?.execution as Record<string, unknown> | undefined)?.reviewAt,
+        (item?.execution as Record<string, unknown> | undefined)?.availableAfter,
+        (item?.execution as Record<string, unknown> | undefined)?.deadlineKind,
+        (item?.execution as Record<string, unknown> | undefined)?.urgencyReason,
+        JSON.stringify((item?.execution as Record<string, unknown> | undefined)?.contexts ?? []),
+        JSON.stringify((item?.execution as Record<string, unknown> | undefined)?.blockedBy ?? []),
         item?.completedAt,
         JSON.stringify(item?.checklist ?? []),
         item?.archived,
@@ -907,6 +1076,15 @@ function buildChanges(
         completed: step.completed ?? false,
       }));
     }
+    if (item.entityType === 'todo') {
+      const execution = (recordFields.execution ?? {}) as Record<string, unknown>;
+      recordFields.execution = {
+        workState: execution.workState ?? 'actionable',
+        ...execution,
+        blockedBy: execution.blockedBy ?? [],
+        contexts: execution.contexts ?? [],
+      };
+    }
     return {
       entityType: item.entityType,
       recordId: id,
@@ -955,6 +1133,19 @@ function buildChanges(
         if (!record || record.payload?.archived === true)
           throw new Error(`Activity ${entityType} ${id} is missing or archived.`);
       }
+    }
+  }
+  for (const change of changes.filter((item) => item.entityType === 'todo')) {
+    const execution = change.payload?.execution as Record<string, unknown> | undefined;
+    for (const blocker of (execution?.blockedBy ?? []) as Array<{
+      entityType: string;
+      entityId: string;
+    }>) {
+      const blockerRecord = current.get(`${blocker.entityType}:${blocker.entityId}`);
+      if (!blockerRecord || blockerRecord.payload?.archived === true)
+        throw new Error(
+          `Todo blocker ${blocker.entityType}:${blocker.entityId} is missing or archived.`,
+        );
     }
   }
   for (const change of changes.filter((item) => item.entityType === 'documentEvidence')) {
@@ -1033,6 +1224,8 @@ Forge is Josiah's durable source of truth. Read **Forge Assistant Context.json**
 
 Never invent identity, values, beliefs, principles, experience, proficiency, quantities, condition, or understanding. Preserve uncertainty in status, confidence, description, and notes. A candidate interpretation from discussion is not a Forge record until Josiah states or confirms it. Do not mechanically save every conversational statement. Do not create duplicate Mind nodes for existing skills, resources, capabilities, todos, or activities; link them with Mind relationships. A todo needs a genuine stated purpose. Document evidence must cite an existing stable ID and only what its source supports.
 
+Represent execution separately from todo lifecycle status. Use \`execution.workState\` only when Josiah explicitly states it or a date makes availability deterministic: \`actionable\`, \`waiting\`, \`blocked\`, \`scheduled\`, \`deferred\`, or \`someday\`. For waiting work, record \`waitingOn\`, the condition that would make it actionable, and an optional \`reviewAt\`. For blocked work, record a plain \`blockedReason\` and stable \`blockedBy\` references when the blocker exists in Forge. Record a concrete \`nextAction\`; use \`deadlineKind: "hard"\` only for a genuinely consequential deadline and preserve the consequence in \`urgencyReason\`. Mark a goal or project as current focus with the exact tag \`current-focus\` only when Josiah explicitly chooses it. Possible opportunities or decisions remain Mind questions/projects until their facts justify a richer record; do not manufacture a decision or next action.
+
 Never edit **Forge Archive.json** or **Forge Assistant Context.json**. Use **Forge Inbox Example.json** or **Forge Mind Inbox Example.json**, a new unique requestId, and only \`save\` operations. Ask before changing an existing record unless Josiah has just explicitly approved the exact proposed change. After writing a request, report what was normalized and saved, then verify it appears in the refreshed archive/context or a Processed receipt.
 `,
     );
@@ -1092,6 +1285,39 @@ Never edit **Forge Archive.json** or **Forge Assistant Context.json**. Use **For
                 target: { entityType: 'skill', entityId: 'use-an-id-from-forge-archive' },
                 relationshipType: 'related to',
                 notes: 'Explain the stated connection.',
+              },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+    atomicWrite(
+      join(this.options.driveDirectory, 'Forge Execution Inbox Example.json'),
+      JSON.stringify(
+        {
+          forgeInboxVersion: DRIVE_INBOX_VERSION,
+          requestId: 'replace-with-a-new-unique-id',
+          createdAt: new Date().toISOString(),
+          summary: 'Record an explicitly stated execution state',
+          operations: [
+            {
+              operation: 'save',
+              entityType: 'todo',
+              record: {
+                title: 'Example waiting item',
+                purpose: 'Explain the real outcome this supports.',
+                priority: 'Normal',
+                execution: {
+                  workState: 'waiting',
+                  nextAction: 'Check for a response after the review date.',
+                  waitingOn: 'Name the external person or condition the user stated.',
+                  waitingCondition: 'A response arrives.',
+                  reviewAt: '2026-08-15T16:00:00.000Z',
+                  blockedBy: [],
+                  contexts: ['phone'],
+                },
               },
             },
           ],

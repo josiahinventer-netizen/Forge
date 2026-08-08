@@ -129,6 +129,12 @@ describe('JSON export', () => {
       linkedCapabilityIds: [],
       completionNotes: '',
       checklist: [{ id: 'measure', text: 'Measure boards', completed: false }],
+      execution: {
+        workState: 'blocked',
+        blockedReason: 'Waiting for the active skill prerequisite',
+        blockedBy: [{ entityType: 'skill', entityId: 'active' }],
+        contexts: ['workshop'],
+      },
       createdAt: '2026-01-01',
       updatedAt: '2026-01-01',
       tags: [],
@@ -214,6 +220,10 @@ describe('JSON export', () => {
     });
     expect(parsed.records.todos?.[0]?.purpose).toBe('Practice carpentry');
     expect(parsed.records.todos?.[0]?.checklist?.[0]?.text).toBe('Measure boards');
+    expect(parsed.records.todos?.[0]?.execution?.blockedBy[0]).toEqual({
+      entityType: 'skill',
+      entityId: 'active',
+    });
     expect(parsed.records.activities?.[0]?.skillPractice[0]?.skillId).toBe('active');
     expect(parsed.records.todoOccurrences?.[0]?.todoId).toBe('todo');
     expect(parsed.records.todoOccurrences?.[0]?.checklist?.[0]?.completed).toBe(true);

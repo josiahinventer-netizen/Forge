@@ -76,9 +76,21 @@ Forge is evolving into a local-first personal operating system and self-improvem
 - [x] Durable relationship vocabulary for skills, credentials, interests, projects, pursuits, learning, knowledge, practice, experience, responsibility, and goal support
 - [x] Drive generation and automated tests for context derivation, archived-record exclusion, instructions, and new relationship semantics
 
+### Slice B — Actionable Today and execution state (complete)
+
+- [x] Optional orthogonal todo execution metadata for actionable, waiting, blocked, scheduled, deferred, and someday work
+- [x] Next action, waiting party/condition, blocker reason/references, review and availability dates, hard/target deadline meaning, urgency reason, and contexts
+- [x] Dexie schema 15 migration that preserves todo lifecycle state, stable IDs, schedules, and history
+- [x] Pure deterministic Today planner that excludes unavailable work and explains every recommendation
+- [x] Deadline pressure, stated priority, current-focus graph paths, multi-hop unblock reach, in-progress state, and bounded effort factors
+- [x] Phone-first dashboard with top actionable work plus waiting, blocked, upcoming, and deferred summaries
+- [x] Todo execution editor, visible state details, and quick actionable/waiting/blocked controls
+- [x] Derived Assistant Context sections for current focus, actionable work, waiting, blocked, deadlines, bottlenecks, and verified weekly progress
+- [x] JSON transfer, Drive Inbox/CSV/example, ChatGPT instructions, migration, planner, graph, and context tests
+
 ### Conversational Forge later slices (not started)
 
-1. Deterministic Today / Focus planner with inspectable reasons and graph-grounded purpose
+1. Project/goal/question-level execution metadata after todo behavior is established with real use
 2. Guided Build My Mind workflow for values, beliefs, principles, evidence, counterevidence, and confirmation
 3. Knowledge-gap and “what should I learn next?” analysis using explicit prerequisites and open questions
 4. Reflection workflows that save durable conclusions rather than conversation transcripts
