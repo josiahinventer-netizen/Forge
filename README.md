@@ -118,6 +118,7 @@ When Google Drive for desktop is mounted, the encrypted LAN server also checks t
 The bridge creates:
 
 - `Forge Archive.json` — the current versioned, human-readable archive, including archived records and deletion tombstones.
+- `Forge Assistant Context.json` — a compact, versioned projection for ordinary conversational questions; it is regenerated from the archive and is never an independent database.
 - `Backups/` — timestamped snapshots created whenever the record set changes or the bridge restarts.
 - `Excel/` — separate skills, resources, capabilities, todos, and activities CSV files for local Excel access.
 - `CHATGPT-FORGE-INSTRUCTIONS.md` and `Forge Inbox Example.json` — instructions and a request template for ChatGPT.
@@ -127,7 +128,17 @@ The bridge creates:
 
 ChatGPT must create a new request file rather than edit `Forge Archive.json`. The inbox accepts version 1 `save` operations for skills, resources, capabilities, todos, and activities. It validates field types, levels, quantities, and linked requirements before writing. It has no delete operation; records can be archived with `archived: true`. Stable request IDs are stored in SQLite so retries and duplicate uploads cannot apply the same request twice. Accepted writes use the normal sync store, appear on other Forge devices through the existing synchronization protocol, and are recorded in the AI audit log.
 
-A clear conversational command such as “add DeWalt reciprocating saw to my tools in Forge” authorizes that non-destructive creation without a second confirmation. ChatGPT should correct obvious spelling and capitalization, check for duplicates, and use conservative defaults without inventing experience or condition. Ambiguous requests, changes to existing records, and archiving still require clarification or confirmation.
+A clear conversational command such as “add DeWalt reciprocating saw to my tools in Forge” authorizes that non-destructive creation without a second confirmation. ChatGPT should correct obvious spelling and capitalization, check for duplicates, and use conservative defaults without inventing experience or condition. Ambiguous requests and changes to existing records still require clarification or confirmation; an explicit command naming the exact record to archive authorizes that archive operation but never deletion.
+
+`CHATGPT-FORGE-INSTRUCTIONS.md` also defines the initial conversational conventions:
+
+- **Forge this** creates explicitly stated, non-destructive information through one validated Inbox request.
+- **Let's forge this through a discussion** explores possibilities without persisting speculative conclusions.
+- **Forge what we learned** saves only durable conclusions the user stated or confirmed, not a transcript.
+- **What should I do today?** and **What should I learn next?** are read-only reasoning requests grounded in Forge data and explained relationships.
+- **What do you know about me?** must distinguish recorded, developing, uncertain, and archived information without inventing personality claims.
+
+The assistant context includes active self-model sections, goals and projects, open todos with purpose and planning metadata, relevant skills, recent activities, open questions, and important graph relationships. Each entry retains stable IDs so ChatGPT can link or update the authoritative record rather than create duplicates. The file declares its projection limits; ChatGPT must read `Forge Archive.json` when an exact question needs omitted or archived data.
 
 Run one synchronization pass manually with:
 
@@ -194,7 +205,7 @@ When a device is connected under **Data â†’ Computer synchronization**, For
 
 Open **Mind** to create the native concepts that describe the user's self-model or knowledge structure. The first version supports identity, value, belief, principle, goal, interest, knowledge, concept, project, person, experience, habit, question, and custom node types. A node can record description, nuanced notes, tags, status, confidence, importance, optional understanding and practical levels, and attributed document evidence. Forge never seeds values, beliefs, or a technology tree—the graph emerges only from user-entered data and sources.
 
-Relationships are separate `MindEdge` records. Each edge has typed source and target references, a semantic relationship such as `part of`, `depends on`, `prerequisite for`, `supports`, or a custom label, plus notes and archive history. At least one endpoint is a native mind node; the other may be another mind node or an existing Forge skill, resource, capability, todo, or activity. This is how a `Robotics` concept can require the existing `Troubleshooting` skill without creating a second skill copy.
+Relationships are separate `MindEdge` records. Each edge has typed source and target references, a focused semantic vocabulary such as `part of`, `has skill`, `has credential`, `interested in`, `works on`, `pursues`, `wants to learn`, `knows about`, `practices`, `experienced in`, `responsible for`, `supports goal`, `requires`, `prerequisite for`, `supports`, or a custom label, plus notes and archive history. At least one endpoint is a native mind node; the other may be another mind node or an existing Forge skill, resource, capability, todo, or activity. This is how a `Robotics` concept can require the existing `Troubleshooting` skill without creating a second skill copy.
 
 The initial visualization is a responsive focused-branch explorer: select or search a node to see records pointing into it and outward from it. This deliberately stores no required screen coordinates. Canvas layout, pan/zoom, collapse, multi-hop traversal, automatic ontology creation, knowledge-gap recommendations, AI generation, and game-like progression are deferred until the semantic model has more real user data.
 

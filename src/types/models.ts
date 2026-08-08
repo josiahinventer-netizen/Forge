@@ -131,6 +131,17 @@ export interface EntityReference {
 export type MindRelationshipType =
   | 'parent of'
   | 'part of'
+  | 'has skill'
+  | 'has credential'
+  | 'interested in'
+  | 'works on'
+  | 'pursues'
+  | 'wants to learn'
+  | 'knows about'
+  | 'practices'
+  | 'experienced in'
+  | 'responsible for'
+  | 'supports goal'
   | 'depends on'
   | 'prerequisite for'
   | 'related to'
@@ -297,6 +308,17 @@ export const MIND_NODE_STATUSES: readonly MindNodeStatus[] = [
 export const MIND_RELATIONSHIP_TYPES: readonly MindRelationshipType[] = [
   'parent of',
   'part of',
+  'has skill',
+  'has credential',
+  'interested in',
+  'works on',
+  'pursues',
+  'wants to learn',
+  'knows about',
+  'practices',
+  'experienced in',
+  'responsible for',
+  'supports goal',
   'depends on',
   'prerequisite for',
   'related to',

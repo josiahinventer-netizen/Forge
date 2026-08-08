@@ -15,6 +15,7 @@ import type { ArchiveRecord, SyncChangeInput, SyncEntityType } from './types.js'
 
 export const DRIVE_ARCHIVE_VERSION = 1;
 export const DRIVE_INBOX_VERSION = 1;
+export const ASSISTANT_CONTEXT_VERSION = 1;
 
 const baseFields = {
   id: z.string().min(1).optional(),
@@ -157,6 +158,17 @@ const mindEdgeOperation = z.object({
     relationshipType: z.enum([
       'parent of',
       'part of',
+      'has skill',
+      'has credential',
+      'interested in',
+      'works on',
+      'pursues',
+      'wants to learn',
+      'knows about',
+      'practices',
+      'experienced in',
+      'responsible for',
+      'supports goal',
       'depends on',
       'prerequisite for',
       'related to',
@@ -415,6 +427,150 @@ export function createDriveArchive(
     deletedRecords: records
       .filter((record) => record.deleted)
       .map(({ entityType, recordId, updatedAt }) => ({ entityType, recordId, updatedAt })),
+  };
+}
+
+type ArchivePayload = Record<string, unknown>;
+
+const activePayloads = (items: Array<ArchivePayload | null>) =>
+  items.filter((item): item is ArchivePayload => Boolean(item) && item?.archived !== true);
+
+const text = (value: unknown) => (typeof value === 'string' ? value : '');
+const number = (value: unknown) => (typeof value === 'number' ? value : 0);
+
+const compactMindNode = (item: ArchivePayload) => ({
+  id: text(item.id),
+  title: text(item.title),
+  type: text(item.type),
+  status: text(item.status),
+  description: text(item.description),
+  confidence: number(item.confidence),
+  importance: number(item.importance),
+  ...(item.familiarityLevel === undefined ? {} : { familiarityLevel: item.familiarityLevel }),
+  ...(item.practicalLevel === undefined ? {} : { practicalLevel: item.practicalLevel }),
+  ...(item.lastReviewedAt === undefined ? {} : { lastReviewedAt: item.lastReviewedAt }),
+});
+
+const byImportance = (left: ArchivePayload, right: ArchivePayload) =>
+  number(right.importance) - number(left.importance) ||
+  text(left.title).localeCompare(text(right.title));
+
+export function createAssistantContext(archive: ReturnType<typeof createDriveArchive>) {
+  const mindNodes = activePayloads(archive.records.mindNodes);
+  const mindEdges = activePayloads(archive.records.mindEdges);
+  const skills = activePayloads(archive.records.skills);
+  const todos = activePayloads(archive.records.todos).filter(
+    (item) => text(item.status) !== 'Completed',
+  );
+  const activities = activePayloads(archive.records.activities);
+  const nodesOfType = (type: string, limit = 20) =>
+    mindNodes
+      .filter((item) => item.type === type)
+      .sort(byImportance)
+      .slice(0, limit)
+      .map(compactMindNode);
+  const compactTodos = todos
+    .sort((left, right) => {
+      const priority = { Urgent: 4, High: 3, Normal: 2, Low: 1 } as Record<string, number>;
+      return (
+        (priority[text(right.priority)] ?? 0) - (priority[text(left.priority)] ?? 0) ||
+        text(left.dueAt).localeCompare(text(right.dueAt))
+      );
+    })
+    .slice(0, 30)
+    .map((item) => ({
+      id: text(item.id),
+      title: text(item.title),
+      purpose: text(item.purpose),
+      status: text(item.status),
+      priority: text(item.priority),
+      ...(item.scheduledFor === undefined ? {} : { scheduledFor: item.scheduledFor }),
+      ...(item.dueAt === undefined ? {} : { dueAt: item.dueAt }),
+      ...(item.estimatedMinutes === undefined ? {} : { estimatedMinutes: item.estimatedMinutes }),
+    }));
+  const compactSkills = skills
+    .sort(
+      (left, right) =>
+        number(right.practicalLevel) +
+          number(right.knowledgeLevel) -
+          number(left.practicalLevel) -
+          number(left.knowledgeLevel) || text(left.name).localeCompare(text(right.name)),
+    )
+    .slice(0, 30)
+    .map((item) => ({
+      id: text(item.id),
+      name: text(item.name),
+      category: text(item.category),
+      knowledgeLevel: number(item.knowledgeLevel),
+      practicalLevel: number(item.practicalLevel),
+      confidence: number(item.confidence),
+    }));
+  const recentActivities = activities
+    .sort((left, right) => text(right.occurredAt).localeCompare(text(left.occurredAt)))
+    .slice(0, 10)
+    .map((item) => ({
+      id: text(item.id),
+      title: text(item.title),
+      purpose: text(item.purpose),
+      occurredAt: text(item.occurredAt),
+      outcome: text(item.outcome),
+    }));
+  const importantRelationships = mindEdges
+    .filter((item) => {
+      const source = item.source as ArchivePayload | undefined;
+      const target = item.target as ArchivePayload | undefined;
+      return Boolean(source?.entityId && target?.entityId);
+    })
+    .slice(0, 60)
+    .map((item) => ({
+      id: text(item.id),
+      source: item.source,
+      relationshipType: text(item.relationshipType),
+      ...(item.customRelationship === undefined
+        ? {}
+        : { customRelationship: item.customRelationship }),
+      target: item.target,
+      notes: text(item.notes),
+    }));
+  return {
+    forgeAssistantContextVersion: ASSISTANT_CONTEXT_VERSION,
+    generatedAt: archive.generatedAt,
+    source: {
+      forgeArchiveVersion: archive.forgeArchiveVersion,
+      username: archive.username,
+      authoritativeFile: 'Forge Archive.json',
+      derived: true,
+    },
+    counts: {
+      activeMindNodes: mindNodes.length,
+      activeMindRelationships: mindEdges.length,
+      activeSkills: skills.length,
+      openTodos: todos.length,
+      recentActivitiesIncluded: recentActivities.length,
+    },
+    identity: nodesOfType('identity'),
+    values: nodesOfType('value'),
+    beliefs: nodesOfType('belief'),
+    principles: nodesOfType('principle'),
+    activeGoals: nodesOfType('goal'),
+    activeProjects: nodesOfType('project'),
+    interests: nodesOfType('interest'),
+    habits: nodesOfType('habit'),
+    openQuestions: nodesOfType('question'),
+    knowledge: nodesOfType('knowledge', 30),
+    activeTodos: compactTodos,
+    relevantSkills: compactSkills,
+    recentActivities,
+    importantRelationships,
+    projectionLimits: {
+      mindNodesPerSection: 20,
+      knowledgeNodes: 30,
+      todos: 30,
+      skills: 30,
+      activities: 10,
+      relationships: 60,
+      note: 'Read Forge Archive.json when a question needs records omitted from this compact projection.',
+    },
   };
 }
 
@@ -858,7 +1014,27 @@ export class ForgeDriveBridge {
       mkdirSync(join(this.options.driveDirectory, folder), { recursive: true });
     atomicWrite(
       join(this.options.driveDirectory, 'CHATGPT-FORGE-INSTRUCTIONS.md'),
-      `# Forge archive instructions\n\nRead **Forge Archive.json** before changing Forge. When Josiah clearly says to add or log something in Forge, that statement authorizes one non-destructive create request: correct obvious spelling and capitalization, check the archive for duplicates, infer only conservative defaults, and immediately create one file named \`forge-request-<unique-id>.json\` in **Inbox** using **Forge Inbox Example.json** or **Forge Mind Inbox Example.json** as the schema. Do not ask for a second confirmation unless the intended record type or identity is genuinely ambiguous. Preserve uncertainty in notes instead of inventing experience, quantities, condition, or proficiency. A todo requires a genuine purpose explaining why it matters; if Josiah has not provided one, ask rather than inventing it. When the user provides steps for a todo or routine, save them in the ordered checklist instead of creating unrelated records. Document evidence must cite an existing skill, resource, capability, activity, or mind node by its archived stable ID and record only what the named source supports. Mind nodes and relationships may be created only from Josiah's stated ideas or source material; never invent his identity, values, beliefs, confidence, or knowledge. Link existing Forge records through mind relationships instead of duplicating them as nodes. Ask before changing an existing record or archiving anything. Never edit archive files and never request deletion; archive records instead. Each request needs a new unique requestId. After writing a request, report the normalized name and fields submitted.\n`,
+      `# Conversational Forge instructions
+
+Forge is Josiah's durable source of truth. Read **Forge Assistant Context.json** first for ordinary questions and **Forge Archive.json** when exact, archived, or omitted records are needed. The assistant context is derived and must never be edited as data.
+
+## Conversation patterns
+
+- **“Forge this”**: if the statement explicitly and unambiguously creates non-destructive information, check for duplicates, reuse existing record IDs, and create one \`forge-request-<unique-id>.json\` in **Inbox**. Do not ask for redundant confirmation.
+- **“Let's forge this through a discussion”**: interview thoughtfully, test examples and tradeoffs, distinguish Josiah's statements from possible interpretations, and do not write speculative conclusions.
+- **“Forge what we learned” / “Save what we figured out”**: extract only durable conclusions supported or confirmed in the current conversation. Prefer a few useful nodes and relationships over a transcript or many near-duplicates.
+- **“What should I do today?”**: use active todos, purpose, priority, timing, goals/projects, recent activity, and graph relationships. Explain why. Ask at most the small amount of missing context that materially changes the answer. Do not modify records unless asked.
+- **“What should I learn next?”**: use goals, interests, skills, knowledge, questions, and prerequisite relationships. Explain the evidence and gaps; do not claim mastery because something was explained once.
+- **“What do you know about me?”**: ground every claim in Forge and distinguish recorded, developing, uncertain, and archived information. Do not infer personality from weak evidence.
+- **“Update this in Forge”**: show the exact existing record and proposed change, then require explicit confirmation before writing.
+- **“Archive X”**: an explicit command naming the exact record authorizes archiving it; otherwise clarify. Never delete.
+
+## Safety and write protocol
+
+Never invent identity, values, beliefs, principles, experience, proficiency, quantities, condition, or understanding. Preserve uncertainty in status, confidence, description, and notes. A candidate interpretation from discussion is not a Forge record until Josiah states or confirms it. Do not mechanically save every conversational statement. Do not create duplicate Mind nodes for existing skills, resources, capabilities, todos, or activities; link them with Mind relationships. A todo needs a genuine stated purpose. Document evidence must cite an existing stable ID and only what its source supports.
+
+Never edit **Forge Archive.json** or **Forge Assistant Context.json**. Use **Forge Inbox Example.json** or **Forge Mind Inbox Example.json**, a new unique requestId, and only \`save\` operations. Ask before changing an existing record unless Josiah has just explicitly approved the exact proposed change. After writing a request, report what was normalized and saved, then verify it appears in the refreshed archive/context or a Processed receipt.
+`,
     );
     atomicWrite(
       join(this.options.driveDirectory, 'Forge Inbox Example.json'),
@@ -941,6 +1117,10 @@ export class ForgeDriveBridge {
     this.lastArchiveHash = hash;
     const json = JSON.stringify(archive, null, 2);
     atomicWrite(join(this.options.driveDirectory, 'Forge Archive.json'), json);
+    atomicWrite(
+      join(this.options.driveDirectory, 'Forge Assistant Context.json'),
+      JSON.stringify(createAssistantContext(archive), null, 2),
+    );
     const stamp = archive.generatedAt.replaceAll(':', '-');
     atomicWrite(join(this.options.driveDirectory, 'Backups', `forge-archive-${stamp}.json`), json);
     for (const [name, contents] of Object.entries(archiveCsvFiles(archive)))

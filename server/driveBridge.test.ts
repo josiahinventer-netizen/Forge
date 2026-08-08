@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   archiveCsvFiles,
+  createAssistantContext,
   ForgeDriveBridge,
   createDriveArchive,
   driveInboxRequestSchema,
@@ -135,6 +136,82 @@ describe('Drive archive', () => {
       { entityType: 'resource', recordId: 'old', updatedAt: '2026-08-02T02:00:00.000Z' },
     ]);
   });
+
+  it('creates a compact deterministic assistant context from authoritative active records', () => {
+    const archive = createDriveArchive(
+      'josiahv',
+      [
+        {
+          entityType: 'mindNode',
+          recordId: 'goal-robotics',
+          updatedAt: '2026-08-02T01:00:00.000Z',
+          deleted: false,
+          payload: {
+            id: 'goal-robotics',
+            title: 'Build robotics systems',
+            type: 'goal',
+            status: 'active',
+            confidence: 80,
+            importance: 95,
+            archived: false,
+          },
+        },
+        {
+          entityType: 'mindNode',
+          recordId: 'old-goal',
+          updatedAt: '2026-08-02T01:00:00.000Z',
+          deleted: false,
+          payload: { id: 'old-goal', title: 'Old goal', type: 'goal', archived: true },
+        },
+        {
+          entityType: 'todo',
+          recordId: 'todo-controls',
+          updatedAt: '2026-08-02T01:00:00.000Z',
+          deleted: false,
+          payload: {
+            id: 'todo-controls',
+            title: 'Study feedback control',
+            purpose: 'Support the robotics goal',
+            status: 'Open',
+            priority: 'High',
+            estimatedMinutes: 45,
+            archived: false,
+          },
+        },
+        {
+          entityType: 'mindEdge',
+          recordId: 'todo-supports-goal',
+          updatedAt: '2026-08-02T01:00:00.000Z',
+          deleted: false,
+          payload: {
+            id: 'todo-supports-goal',
+            source: { entityType: 'todo', entityId: 'todo-controls' },
+            target: { entityType: 'mindNode', entityId: 'goal-robotics' },
+            relationshipType: 'supports goal',
+            archived: false,
+          },
+        },
+      ],
+      '2026-08-02T03:00:00.000Z',
+    );
+    const context = createAssistantContext(archive);
+    expect(context.source).toEqual({
+      forgeArchiveVersion: 1,
+      username: 'josiahv',
+      authoritativeFile: 'Forge Archive.json',
+      derived: true,
+    });
+    expect(context.activeGoals).toEqual([
+      expect.objectContaining({ id: 'goal-robotics', title: 'Build robotics systems' }),
+    ]);
+    expect(context.activeTodos).toEqual([
+      expect.objectContaining({ title: 'Study feedback control', estimatedMinutes: 45 }),
+    ]);
+    expect(context.importantRelationships).toEqual([
+      expect.objectContaining({ relationshipType: 'supports goal' }),
+    ]);
+    expect(JSON.stringify(context)).not.toContain('Old goal');
+  });
 });
 
 describe('Drive inbox', () => {
@@ -157,10 +234,13 @@ describe('Drive inbox', () => {
     const bridge = new ForgeDriveBridge({ driveDirectory: directory, username: 'josiahv', store });
     bridge.initialize();
     expect(readFileSync(join(directory, 'CHATGPT-FORGE-INSTRUCTIONS.md'), 'utf8')).toContain(
-      'authorizes one non-destructive create request',
+      'Do not ask for redundant confirmation',
     );
     expect(readFileSync(join(directory, 'CHATGPT-FORGE-INSTRUCTIONS.md'), 'utf8')).toContain(
-      'never invent his identity, values, beliefs',
+      'Never invent identity, values, beliefs',
+    );
+    expect(readFileSync(join(directory, 'CHATGPT-FORGE-INSTRUCTIONS.md'), 'utf8')).toContain(
+      'Forge what we learned',
     );
     expect(existsSync(join(directory, 'Forge Mind Inbox Example.json'))).toBe(true);
     const request = {
@@ -244,7 +324,7 @@ describe('Drive inbox', () => {
             id: 'mind-welding-skill',
             source: { entityType: 'mindNode', entityId: 'mind-welding' },
             target: { entityType: 'skill', entityId: 'skill-welding' },
-            relationshipType: 'related to',
+            relationshipType: 'has skill',
             notes: 'Links the concept to the existing skill without duplicating it.',
           },
         },
@@ -260,6 +340,10 @@ describe('Drive inbox', () => {
     expect(
       JSON.parse(readFileSync(join(directory, 'Forge Archive.json'), 'utf8')).records.skills,
     ).toHaveLength(1);
+    expect(
+      JSON.parse(readFileSync(join(directory, 'Forge Assistant Context.json'), 'utf8'))
+        .forgeAssistantContextVersion,
+    ).toBe(1);
     expect(store.driveInboxReceipt(account.id, 'request-1')?.status).toBe('processed');
     expect(store.archiveRecord(account.id, 'todo', 'todo-practice')?.payload?.purpose).toBe(
       'Build practical skill',
