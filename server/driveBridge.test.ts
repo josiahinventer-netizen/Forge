@@ -175,7 +175,34 @@ describe('Drive archive', () => {
             status: 'Open',
             priority: 'High',
             estimatedMinutes: 45,
+            dueAt: '2026-08-03T03:00:00.000Z',
+            execution: {
+              workState: 'actionable',
+              deadlineKind: 'hard',
+              blockedBy: [],
+              contexts: ['computer'],
+            },
             archived: false,
+          },
+        },
+        {
+          entityType: 'todo',
+          recordId: 'todo-waiting',
+          updatedAt: '2026-08-02T01:00:00.000Z',
+          deleted: false,
+          payload: {
+            id: 'todo-waiting',
+            title: 'External review',
+            purpose: 'Await a decision',
+            status: 'Open',
+            priority: 'Urgent',
+            archived: false,
+            execution: {
+              workState: 'waiting',
+              waitingOn: 'External reviewer',
+              blockedBy: [],
+              contexts: [],
+            },
           },
         },
         {
@@ -205,8 +232,16 @@ describe('Drive archive', () => {
       expect.objectContaining({ id: 'goal-robotics', title: 'Build robotics systems' }),
     ]);
     expect(context.activeTodos).toEqual([
+      expect.objectContaining({ title: 'External review' }),
       expect.objectContaining({ title: 'Study feedback control', estimatedMinutes: 45 }),
     ]);
+    expect(context.actionableNow[0]).toEqual(
+      expect.objectContaining({ title: 'Study feedback control', score: expect.any(Number) }),
+    );
+    expect(context.waitingItems).toEqual([expect.objectContaining({ title: 'External review' })]);
+    expect(context.upcomingDeadlines[0]).toEqual(
+      expect.objectContaining({ title: 'Study feedback control', daysRemaining: 1 }),
+    );
     expect(context.importantRelationships).toEqual([
       expect.objectContaining({ relationshipType: 'supports goal' }),
     ]);
@@ -243,6 +278,7 @@ describe('Drive inbox', () => {
       'Forge what we learned',
     );
     expect(existsSync(join(directory, 'Forge Mind Inbox Example.json'))).toBe(true);
+    expect(existsSync(join(directory, 'Forge Execution Inbox Example.json'))).toBe(true);
     const request = {
       forgeInboxVersion: 1,
       requestId: 'request-1',
@@ -268,6 +304,13 @@ describe('Drive inbox', () => {
             title: 'Practice welding',
             purpose: 'Build practical skill',
             priority: 'High',
+            execution: {
+              workState: 'waiting',
+              waitingOn: 'Training date',
+              waitingCondition: 'The scheduled training starts.',
+              blockedBy: [],
+              contexts: ['workshop'],
+            },
             checklist: [{ text: 'Set up welder' }, { text: 'Practice one bead' }],
           },
         },
@@ -356,6 +399,13 @@ describe('Drive inbox', () => {
         id: expect.any(String),
       }),
     ]);
+    expect(
+      (
+        store.archiveRecord(account.id, 'todo', 'todo-practice')?.payload?.execution as {
+          workState: string;
+        }
+      ).workState,
+    ).toBe('waiting');
     expect(store.archiveRecord(account.id, 'activity', 'activity-welding')?.payload?.title).toBe(
       'Study welding safety',
     );

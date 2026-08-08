@@ -131,6 +131,41 @@ describe('import validation', () => {
     });
   });
 
+  it('validates todo execution metadata and blocker references', () => {
+    const backup = bundle([skill('blocker', 'Prerequisite', '2026-08-01T00:00:00.000Z')]);
+    backup.records.todos = [
+      {
+        id: 'waiting',
+        title: 'Waiting work',
+        description: '',
+        purpose: 'Advance a goal',
+        status: 'Open',
+        priority: 'High',
+        linkedSkillIds: [],
+        linkedResourceIds: [],
+        linkedCapabilityIds: [],
+        completionNotes: '',
+        checklist: [],
+        execution: {
+          workState: 'blocked',
+          blockedReason: 'Needs prerequisite',
+          blockedBy: [{ entityType: 'skill', entityId: 'blocker' }],
+          contexts: ['home'],
+        },
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+        tags: [],
+        archived: false,
+      },
+    ];
+    expect(validateImport(backup).valid).toBe(true);
+    backup.records.todos[0]!.execution!.blockedBy[0]!.entityId = 'missing';
+    expect(validateImport(backup)).toEqual({
+      valid: false,
+      errors: ['Todo waiting has a missing blocker reference.'],
+    });
+  });
+
   it('rejects malformed records, duplicate IDs, and future schemas', () => {
     const malformed = validateImport({
       ...bundle([]),

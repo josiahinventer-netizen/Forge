@@ -14,7 +14,7 @@ import type {
   MindEdge,
 } from '../types/models';
 
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
@@ -256,6 +256,41 @@ export class ForgeDatabase extends Dexie {
       activities: 'id, title, occurredAt, archived, updatedAt, *tags',
       syncSettings: 'id',
     });
+
+    // V15 adds explicit execution state without changing todo lifecycle status or stable IDs.
+    this.version(15)
+      .stores({
+        skills: 'id, name, category, archived, updatedAt, *tags',
+        resources:
+          'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
+        capabilities: 'id, name, category, archived, updatedAt, *tags',
+        attachments:
+          'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+        documentEvidence:
+          'id, ownerType, ownerId, sourceType, verificationStatus, issuedAt, archived, updatedAt, *tags',
+        mindNodes: 'id, title, type, status, importance, archived, updatedAt, *tags',
+        mindEdges:
+          'id, source.entityId, target.entityId, relationshipType, archived, updatedAt, *tags',
+        todos:
+          'id, title, status, priority, scheduledFor, dueAt, execution.workState, execution.reviewAt, execution.availableAfter, archived, updatedAt, *tags',
+        todoOccurrences: 'id, todoId, completedAt, archived, updatedAt, *tags',
+        reminderEvents:
+          'id, todoId, occurrenceKey, detectedAt, acknowledgedAt, action, archived, updatedAt',
+        activities: 'id, title, occurredAt, archived, updatedAt, *tags',
+        syncSettings: 'id',
+      })
+      .upgrade(async (transaction) => {
+        await transaction
+          .table<Todo>('todos')
+          .toCollection()
+          .modify((todo) => {
+            todo.execution ??= {
+              workState: todo.status === 'Completed' ? 'deferred' : 'actionable',
+              blockedBy: [],
+              contexts: [],
+            };
+          });
+      });
   }
 }
 

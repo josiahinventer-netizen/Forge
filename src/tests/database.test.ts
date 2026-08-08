@@ -406,4 +406,36 @@ describe('ForgeDatabase', () => {
     expect(await migrated.mindNodes.count()).toBe(0);
     expect(await migrated.mindEdges.count()).toBe(0);
   });
+
+  it('adds schema 15 execution metadata to existing todos without changing their lifecycle', async () => {
+    const name = `forge-execution-migration-${crypto.randomUUID()}`;
+    const legacy = new Dexie(name);
+    legacy.version(14).stores({
+      todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
+    });
+    await legacy.table('todos').put({
+      id: 'existing-todo',
+      title: 'Existing work',
+      description: '',
+      purpose: 'Keep it',
+      status: 'Open',
+      priority: 'Normal',
+      linkedSkillIds: [],
+      linkedResourceIds: [],
+      linkedCapabilityIds: [],
+      completionNotes: '',
+      checklist: [],
+      tags: [],
+      archived: false,
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+    });
+    legacy.close();
+    const migrated = new ForgeDatabase(name);
+    databases.push(migrated);
+    await migrated.open();
+    const stored = await migrated.todos.get('existing-todo');
+    expect(stored?.status).toBe('Open');
+    expect(stored?.execution).toEqual({ workState: 'actionable', blockedBy: [], contexts: [] });
+  });
 });

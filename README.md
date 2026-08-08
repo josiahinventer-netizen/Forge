@@ -121,7 +121,7 @@ The bridge creates:
 - `Forge Assistant Context.json` — a compact, versioned projection for ordinary conversational questions; it is regenerated from the archive and is never an independent database.
 - `Backups/` — timestamped snapshots created whenever the record set changes or the bridge restarts.
 - `Excel/` — separate skills, resources, capabilities, todos, and activities CSV files for local Excel access.
-- `CHATGPT-FORGE-INSTRUCTIONS.md` and `Forge Inbox Example.json` — instructions and a request template for ChatGPT.
+- `CHATGPT-FORGE-INSTRUCTIONS.md`, `Forge Inbox Example.json`, and `Forge Execution Inbox Example.json` — instructions and request templates for ChatGPT.
 - `Inbox/` — proposed `forge-request-*.json` files awaiting validation.
 - `Processed/` and `Rejected/` — original requests plus machine-readable receipts or errors.
 - `Evidence/` — image evidence mirrored from synchronized Forge attachments using stable attachment IDs.
@@ -139,6 +139,23 @@ A clear conversational command such as “add DeWalt reciprocating saw to my too
 - **What do you know about me?** must distinguish recorded, developing, uncertain, and archived information without inventing personality claims.
 
 The assistant context includes active self-model sections, goals and projects, open todos with purpose and planning metadata, relevant skills, recent activities, open questions, and important graph relationships. Each entry retains stable IDs so ChatGPT can link or update the authoritative record rather than create duplicates. The file declares its projection limits; ChatGPT must read `Forge Archive.json` when an exact question needs omitted or archived data.
+
+## Today and execution state
+
+The home dashboard begins with **Today — What actually moves me forward?** Forge separates todo lifecycle (`Open`, `In progress`, or `Completed`) from execution state. An open todo may independently be actionable, waiting, blocked, scheduled, deferred, or someday. Existing todos migrate to actionable so upgrades do not silently hide work.
+
+Todo execution metadata can record a concrete next action, what or whom the user is waiting on, the condition that restores actionability, a blocker reason and stable blocker references, review and availability dates, whether a due date is hard or a target, the consequence of urgency, and contexts such as home, workshop, phone, or computer. These states are explicit user data; Forge does not guess them from prose.
+
+The pure Today planner completely excludes waiting, blocked, deferred, someday, and not-yet-available work from actionable recommendations. It ranks remaining work with inspectable factors:
+
+- deadline proximity, with overdue and near hard deadlines strongest;
+- stated priority;
+- an explicit relationship path to a goal or project tagged `current-focus`;
+- up to four reachable goals/projects through `supports`, `supports goal`, `contributes to`, `part of`, or `motivated by` relationships;
+- work already in progress; and
+- a small bounded boost for tasks estimated at one hour or less.
+
+The displayed explanation lists the actual factors rather than presenting an unexplained productivity score. `Forge Assistant Context.json` derives matching `currentFocus`, `actionableNow`, `waitingItems`, `blockedItems`, `upcomingDeadlines`, `importantBottlenecks`, and seven-day `progressSummary` sections. The authoritative archive remains the only durable source.
 
 Run one synchronization pass manually with:
 
@@ -209,7 +226,7 @@ Relationships are separate `MindEdge` records. Each edge has typed source and ta
 
 The initial visualization is a responsive focused-branch explorer: select or search a node to see records pointing into it and outward from it. This deliberately stores no required screen coordinates. Canvas layout, pan/zoom, collapse, multi-hop traversal, automatic ontology creation, knowledge-gap recommendations, AI generation, and game-like progression are deferred until the semantic model has more real user data.
 
-Mind nodes and relationships are included in JSON import/export, independent device synchronization, `Forge Archive.json`, Excel-compatible Drive CSV views, validated Drive inbox operations, and local MCP search/get tools. IndexedDB schema 14 adds the two tables without rewriting prior records.
+Mind nodes and relationships are included in JSON import/export, independent device synchronization, `Forge Archive.json`, Excel-compatible Drive CSV views, validated Drive inbox operations, and local MCP search/get tools. IndexedDB schema 14 added the two graph tables without rewriting prior records; schema 15 adds indexed todo execution metadata and migrates existing todos without changing their lifecycle or IDs.
 
 ## Attributed document evidence
 

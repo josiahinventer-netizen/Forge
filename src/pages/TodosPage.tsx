@@ -1,8 +1,14 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { baseRecord, db, now, uid } from '../database/db';
-import type { RecurrenceFrequency, Todo, TodoPriority, TodoStatus } from '../types/models';
-import { TODO_PRIORITIES } from '../types/models';
+import type {
+  RecurrenceFrequency,
+  Todo,
+  TodoPriority,
+  TodoStatus,
+  WorkState,
+} from '../types/models';
+import { TODO_PRIORITIES, WORK_STATES } from '../types/models';
 import { orderedTodos, todoTiming } from '../services/todoPlanning';
 import { Card, Empty, Field, Modal, Page, formatDate } from '../components/UI';
 import { SpeechInput } from '../components/SpeechInput';
@@ -27,6 +33,7 @@ const emptyTodo = (): Todo => ({
   completionNotes: '',
   reminderMinutesBefore: 15,
   checklist: [],
+  execution: { workState: 'actionable', blockedBy: [], contexts: [] },
 });
 const localInput = (value?: string) => {
   if (!value) return '';
@@ -148,6 +155,9 @@ export function TodosPage() {
                       {timing}
                     </span>
                     <span className="pill">{todo.priority}</span>
+                    <span className={`pill work-${todo.execution?.workState ?? 'actionable'}`}>
+                      {todo.execution?.workState ?? 'actionable'}
+                    </span>
                     <h3>{todo.title}</h3>
                     {todo.purpose && (
                       <p>
@@ -165,6 +175,24 @@ export function TodosPage() {
                         ? ` · Snoozed until ${new Date(todo.snoozedUntil).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
                         : ''}
                     </p>
+                    {todo.execution?.nextAction && (
+                      <p>
+                        <strong>Next:</strong> {todo.execution.nextAction}
+                      </p>
+                    )}
+                    {todo.execution?.waitingOn && (
+                      <p>
+                        <strong>Waiting on:</strong> {todo.execution.waitingOn}
+                      </p>
+                    )}
+                    {todo.execution?.blockedReason && (
+                      <p>
+                        <strong>Blocked:</strong> {todo.execution.blockedReason}
+                      </p>
+                    )}
+                    {todo.execution?.reviewAt && (
+                      <p className="muted">Review {formatDate(todo.execution.reviewAt)}</p>
+                    )}
                     {checklist.length > 0 && (
                       <div className="todo-checklist" aria-label={`${todo.title} checklist`}>
                         <p className="muted">
@@ -190,6 +218,55 @@ export function TodosPage() {
                     <button className="secondary" onClick={() => setEdit(todo)}>
                       Edit
                     </button>
+                    {todo.status !== 'Completed' && (
+                      <div
+                        className="execution-actions"
+                        aria-label={`${todo.title} execution state`}
+                      >
+                        <button
+                          className="secondary compact"
+                          onClick={() =>
+                            void db.todos.update(todo.id, {
+                              execution: {
+                                ...(todo.execution ?? { blockedBy: [], contexts: [] }),
+                                workState: 'actionable',
+                              },
+                              updatedAt: now(),
+                            })
+                          }
+                        >
+                          Do now
+                        </button>
+                        <button
+                          className="secondary compact"
+                          onClick={() =>
+                            setEdit({
+                              ...todo,
+                              execution: {
+                                ...(todo.execution ?? { blockedBy: [], contexts: [] }),
+                                workState: 'waiting',
+                              },
+                            })
+                          }
+                        >
+                          Waiting
+                        </button>
+                        <button
+                          className="secondary compact"
+                          onClick={() =>
+                            setEdit({
+                              ...todo,
+                              execution: {
+                                ...(todo.execution ?? { blockedBy: [], contexts: [] }),
+                                workState: 'blocked',
+                              },
+                            })
+                          }
+                        >
+                          Blocked
+                        </button>
+                      </div>
+                    )}
                     {todo.status !== 'Completed' && (
                       <button
                         disabled={completedSteps < checklist.length}
@@ -283,6 +360,17 @@ export function TodosPage() {
               event.preventDefault();
               if (edit.recurrence && !edit.scheduledFor && !edit.dueAt) {
                 alert('Choose a scheduled start or due time for a repeating todo.');
+                return;
+              }
+              if (edit.execution?.workState === 'waiting' && !edit.execution.waitingOn?.trim()) {
+                alert('Say what or whom this todo is waiting on.');
+                return;
+              }
+              if (
+                edit.execution?.workState === 'blocked' &&
+                !edit.execution.blockedReason?.trim()
+              ) {
+                alert('Explain what blocks this todo.');
                 return;
               }
               if (
@@ -436,6 +524,192 @@ export function TodosPage() {
                     <option key={priority}>{priority}</option>
                   ))}
                 </select>
+              </Field>
+              <Field label="Work state">
+                <select
+                  value={edit.execution?.workState ?? 'actionable'}
+                  onChange={(event) =>
+                    setEdit({
+                      ...edit,
+                      execution: {
+                        ...(edit.execution ?? { blockedBy: [], contexts: [] }),
+                        workState: event.target.value as WorkState,
+                      },
+                    })
+                  }
+                >
+                  {WORK_STATES.map((state) => (
+                    <option key={state}>{state}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Next action">
+                <input
+                  value={edit.execution?.nextAction ?? ''}
+                  onChange={(event) =>
+                    setEdit({
+                      ...edit,
+                      execution: {
+                        ...(edit.execution ?? {
+                          workState: 'actionable',
+                          blockedBy: [],
+                          contexts: [],
+                        }),
+                        nextAction: event.target.value || undefined,
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Waiting on">
+                <input
+                  value={edit.execution?.waitingOn ?? ''}
+                  onChange={(event) =>
+                    setEdit({
+                      ...edit,
+                      execution: {
+                        ...(edit.execution ?? {
+                          workState: 'actionable',
+                          blockedBy: [],
+                          contexts: [],
+                        }),
+                        waitingOn: event.target.value || undefined,
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Becomes actionable when">
+                <input
+                  value={edit.execution?.waitingCondition ?? ''}
+                  onChange={(event) =>
+                    setEdit({
+                      ...edit,
+                      execution: {
+                        ...(edit.execution ?? {
+                          workState: 'actionable',
+                          blockedBy: [],
+                          contexts: [],
+                        }),
+                        waitingCondition: event.target.value || undefined,
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Blocked reason">
+                <input
+                  value={edit.execution?.blockedReason ?? ''}
+                  onChange={(event) =>
+                    setEdit({
+                      ...edit,
+                      execution: {
+                        ...(edit.execution ?? {
+                          workState: 'actionable',
+                          blockedBy: [],
+                          contexts: [],
+                        }),
+                        blockedReason: event.target.value || undefined,
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Review date">
+                <input
+                  type="datetime-local"
+                  value={localInput(edit.execution?.reviewAt)}
+                  onChange={(event) =>
+                    setEdit({
+                      ...edit,
+                      execution: {
+                        ...(edit.execution ?? {
+                          workState: 'actionable',
+                          blockedBy: [],
+                          contexts: [],
+                        }),
+                        reviewAt: isoInput(event.target.value),
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Available after">
+                <input
+                  type="datetime-local"
+                  value={localInput(edit.execution?.availableAfter)}
+                  onChange={(event) =>
+                    setEdit({
+                      ...edit,
+                      execution: {
+                        ...(edit.execution ?? {
+                          workState: 'actionable',
+                          blockedBy: [],
+                          contexts: [],
+                        }),
+                        availableAfter: isoInput(event.target.value),
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Deadline type">
+                <select
+                  value={edit.execution?.deadlineKind ?? ''}
+                  onChange={(event) =>
+                    setEdit({
+                      ...edit,
+                      execution: {
+                        ...(edit.execution ?? {
+                          workState: 'actionable',
+                          blockedBy: [],
+                          contexts: [],
+                        }),
+                        deadlineKind: (event.target.value || undefined) as
+                          'hard' | 'target' | undefined,
+                      },
+                    })
+                  }
+                >
+                  <option value="">Not specified</option>
+                  <option value="hard">Hard deadline</option>
+                  <option value="target">Target date</option>
+                </select>
+              </Field>
+              <Field label="Consequence or urgency reason">
+                <input
+                  value={edit.execution?.urgencyReason ?? ''}
+                  onChange={(event) =>
+                    setEdit({
+                      ...edit,
+                      execution: {
+                        ...(edit.execution ?? {
+                          workState: 'actionable',
+                          blockedBy: [],
+                          contexts: [],
+                        }),
+                        urgencyReason: event.target.value || undefined,
+                      },
+                    })
+                  }
+                />
+              </Field>
+              <Field label="Contexts (comma separated)">
+                <input
+                  value={(edit.execution?.contexts ?? []).join(', ')}
+                  onChange={(event) =>
+                    setEdit({
+                      ...edit,
+                      execution: {
+                        ...(edit.execution ?? { workState: 'actionable', blockedBy: [] }),
+                        contexts: event.target.value
+                          .split(',')
+                          .map((value) => value.trim())
+                          .filter(Boolean),
+                      },
+                    })
+                  }
+                />
               </Field>
               <Field label="Scheduled start">
                 <input

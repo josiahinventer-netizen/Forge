@@ -15,6 +15,7 @@ import type {
   TodoOccurrence,
   ReminderEvent,
 } from '../types/models';
+import { MIND_RELATIONSHIP_TYPES, WORK_STATES } from '../types/models';
 
 declare const __APP_VERSION__: string;
 
@@ -209,23 +210,9 @@ export function isMindEdge(value: unknown): value is MindEdge {
   return (
     isEntityReference(value.source) &&
     isEntityReference(value.target) &&
-    [
-      'parent of',
-      'part of',
-      'depends on',
-      'prerequisite for',
-      'related to',
-      'supports',
-      'conflicts with',
-      'derived from',
-      'used by',
-      'learned from',
-      'contributes to',
-      'motivated by',
-      'requires',
-      'applies to',
-      'custom',
-    ].includes(String(value.relationshipType)) &&
+    MIND_RELATIONSHIP_TYPES.includes(
+      value.relationshipType as (typeof MIND_RELATIONSHIP_TYPES)[number],
+    ) &&
     (value.relationshipType !== 'custom' ||
       (typeof value.customRelationship === 'string' && value.customRelationship.length > 0)) &&
     typeof value.notes === 'string'
@@ -249,6 +236,26 @@ export function isTodo(value: unknown): value is Todo {
       ) &&
       new Set(value.checklist.map((item) => (isRecord(item) ? item.id : ''))).size ===
         value.checklist.length);
+  const validExecution =
+    value.execution === undefined ||
+    (isRecord(value.execution) &&
+      WORK_STATES.includes(value.execution.workState as (typeof WORK_STATES)[number]) &&
+      (value.execution.nextAction === undefined ||
+        typeof value.execution.nextAction === 'string') &&
+      (value.execution.waitingOn === undefined || typeof value.execution.waitingOn === 'string') &&
+      (value.execution.waitingCondition === undefined ||
+        typeof value.execution.waitingCondition === 'string') &&
+      (value.execution.blockedReason === undefined ||
+        typeof value.execution.blockedReason === 'string') &&
+      Array.isArray(value.execution.blockedBy) &&
+      value.execution.blockedBy.every(isEntityReference) &&
+      (value.execution.reviewAt === undefined || isDate(value.execution.reviewAt)) &&
+      (value.execution.availableAfter === undefined || isDate(value.execution.availableAfter)) &&
+      (value.execution.deadlineKind === undefined ||
+        ['hard', 'target'].includes(String(value.execution.deadlineKind))) &&
+      (value.execution.urgencyReason === undefined ||
+        typeof value.execution.urgencyReason === 'string') &&
+      isStringArray(value.execution.contexts));
   return (
     typeof value.title === 'string' &&
     value.title.length > 0 &&
@@ -273,7 +280,8 @@ export function isTodo(value: unknown): value is Todo {
         Number.isInteger(value.recurrence.interval) &&
         value.recurrence.interval >= 1)) &&
     (value.snoozedUntil === undefined || isDate(value.snoozedUntil)) &&
-    validChecklist
+    validChecklist &&
+    validExecution
   );
 }
 
@@ -474,6 +482,12 @@ export function validateImport(value: unknown): ImportValidationResult {
     ...(bundle.records.todos ?? []).map((item) => `todo:${item.id}`),
     ...(bundle.records.activities ?? []).map((item) => `activity:${item.id}`),
   ]);
+  for (const todo of bundle.records.todos ?? []) {
+    for (const blocker of todo.execution?.blockedBy ?? []) {
+      if (!graphRecordIds.has(`${blocker.entityType}:${blocker.entityId}`))
+        errors.push(`Todo ${todo.id} has a missing blocker reference.`);
+    }
+  }
   for (const edge of bundle.records.mindEdges ?? []) {
     if (!graphRecordIds.has(`${edge.source.entityType}:${edge.source.entityId}`))
       errors.push(`Mind relationship ${edge.id} has a missing source.`);

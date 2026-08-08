@@ -5,21 +5,32 @@ import { Card, Page } from '../components/UI';
 import { db } from '../database/db';
 import { assessCapability, rankClosestCapabilities } from '../services/capabilityAvailability';
 import { compareProgressPeriods } from '../services/progressReview';
+import { planToday } from '../services/todoPlanning';
 
 export function DashboardPage() {
   const [reviewDays, setReviewDays] = useState<7 | 30 | 90>(7);
   const counts = useLiveQuery(async () => {
-    const [skills, resources, capabilities, todos, activities, attachments, mindNodes, mindEdges] =
-      await Promise.all([
-        db.skills.toArray(),
-        db.resources.toArray(),
-        db.capabilities.filter((capability) => !capability.archived).toArray(),
-        db.todos.filter((todo) => !todo.archived).toArray(),
-        db.activities.filter((activity) => !activity.archived).toArray(),
-        db.attachments.filter((attachment) => !attachment.archived).toArray(),
-        db.mindNodes.filter((node) => !node.archived).toArray(),
-        db.mindEdges.filter((edge) => !edge.archived).toArray(),
-      ]);
+    const [
+      skills,
+      resources,
+      capabilities,
+      todos,
+      activities,
+      attachments,
+      mindNodes,
+      mindEdges,
+      todoOccurrences,
+    ] = await Promise.all([
+      db.skills.toArray(),
+      db.resources.toArray(),
+      db.capabilities.filter((capability) => !capability.archived).toArray(),
+      db.todos.filter((todo) => !todo.archived).toArray(),
+      db.activities.filter((activity) => !activity.archived).toArray(),
+      db.attachments.filter((attachment) => !attachment.archived).toArray(),
+      db.mindNodes.filter((node) => !node.archived).toArray(),
+      db.mindEdges.filter((edge) => !edge.archived).toArray(),
+      db.todoOccurrences.orderBy('completedAt').reverse().toArray(),
+    ]);
     const [activeSkills, archivedSkills, activeResources, archivedResources] = [
       skills.filter((skill) => !skill.archived).length,
       skills.filter((skill) => skill.archived).length,
@@ -58,15 +69,102 @@ export function DashboardPage() {
         new Date(),
         reviewDays,
       ),
+      todayPlan: planToday(todos, mindNodes, mindEdges),
+      weeklyProgress: [
+        ...todoOccurrences
+          .filter((item) => Date.parse(item.completedAt) >= Date.now() - 7 * 86_400_000)
+          .map((item) => ({
+            id: item.id,
+            title: item.title,
+            at: item.completedAt,
+            kind: 'Completed',
+          })),
+        ...activities
+          .filter((item) => Date.parse(item.occurredAt) >= Date.now() - 7 * 86_400_000)
+          .map((item) => ({
+            id: item.id,
+            title: item.title,
+            at: item.occurredAt,
+            kind: 'Activity',
+          })),
+      ].sort((left, right) => Date.parse(right.at) - Date.parse(left.at)),
     };
   }, [reviewDays]);
   const review = counts?.reviewComparison.current;
+  const today = counts?.todayPlan;
 
   return (
     <Page
       title="Character dashboard"
       subtitle="A local-first foundation for recording skills and resources."
     >
+      <section className="today-view" aria-labelledby="today-heading">
+        <div className="today-heading">
+          <div>
+            <p className="eyebrow">TODAY</p>
+            <h2 id="today-heading">What actually moves me forward?</h2>
+          </div>
+          {today?.currentFocus.length ? (
+            <span className="focus-chip">
+              Focus: {today.currentFocus.map((item) => item.title).join(', ')}
+            </span>
+          ) : null}
+        </div>
+        <div className="today-actions">
+          {today?.actionableNow.slice(0, 3).map((item, index) => (
+            <Card key={item.todo.id} className={index === 0 ? 'primary-action' : ''}>
+              <span className="rank">{index + 1}</span>
+              <div>
+                <h3>{item.todo.execution?.nextAction || item.todo.title}</h3>
+                <p>{item.todo.purpose}</p>
+                <p className="muted">Why now: {item.reasons.join(' · ')}</p>
+                {item.todo.estimatedMinutes ? (
+                  <small>About {item.todo.estimatedMinutes} minutes</small>
+                ) : null}
+              </div>
+            </Card>
+          ))}
+          {today && today.actionableNow.length === 0 ? (
+            <Card>
+              <p>
+                No work is explicitly actionable right now. Review waiting or blocked items instead
+                of forcing activity.
+              </p>
+            </Card>
+          ) : null}
+        </div>
+        <div className="execution-summary">
+          <Link to="/todos">
+            <strong>Waiting</strong>
+            <span>{today?.waiting.length ?? 0} items</span>
+          </Link>
+          <Link to="/todos">
+            <strong>Blocked</strong>
+            <span>{today?.blocked.length ?? 0} items</span>
+          </Link>
+          <Link to="/todos">
+            <strong>Upcoming</strong>
+            <span>{today?.upcoming.length ?? 0} items</span>
+          </Link>
+          <Link to="/todos">
+            <strong>Deferred</strong>
+            <span>{today?.deferred.length ?? 0} items</span>
+          </Link>
+        </div>
+        <Card className="today-progress">
+          <div>
+            <p className="eyebrow">PROGRESS</p>
+            <strong>
+              {counts?.weeklyProgress.length ?? 0} meaningful steps recorded this week
+            </strong>
+          </div>
+          {counts?.weeklyProgress.slice(0, 3).map((item) => (
+            <span key={`${item.kind}:${item.id}`}>
+              {item.kind}: {item.title}
+            </span>
+          ))}
+        </Card>
+      </section>
       <div className="stats slice-stats">
         <Card>
           <b>{counts?.activeSkills ?? '—'}</b>
