@@ -234,6 +234,24 @@ function sessionFrom(value: unknown): { token: string; expiresAt: string } {
   return { token: value.token, expiresAt: value.expiresAt };
 }
 
+async function storeSession(
+  serverUrl: string,
+  username: string,
+  session: { token: string; expiresAt: string },
+  database: ForgeDatabase,
+): Promise<SyncSettings> {
+  const settings: SyncSettings = {
+    id: 'primary',
+    serverUrl,
+    username: username.trim().toLowerCase(),
+    sessionToken: session.token,
+    sessionExpiresAt: session.expiresAt,
+    cursor: 0,
+  };
+  await database.syncSettings.put(settings);
+  return settings;
+}
+
 export async function connectDevice(
   serverUrl: string,
   username: string,
@@ -259,16 +277,79 @@ export async function connectDevice(
       fetcher,
     ),
   );
-  const settings: SyncSettings = {
-    id: 'primary',
-    serverUrl: normalizedUrl,
-    username: username.trim().toLowerCase(),
-    sessionToken: session.token,
-    sessionExpiresAt: session.expiresAt,
-    cursor: 0,
-  };
-  await database.syncSettings.put(settings);
-  return settings;
+  return storeSession(normalizedUrl, username, session, database);
+}
+
+export async function connectWithAccessCode(
+  serverUrl: string,
+  username: string,
+  code: string,
+  kind: 'pairing' | 'recovery',
+  database: ForgeDatabase = db,
+  fetcher: typeof fetch = fetch,
+): Promise<SyncSettings> {
+  const normalizedUrl = normalizeServerUrl(serverUrl);
+  if (!normalizedUrl.startsWith('https://')) throw new Error('The sync server must use HTTPS.');
+  const session = sessionFrom(
+    await requestJson(
+      `${normalizedUrl}/api/${kind}/exchange`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username, code }),
+      },
+      fetcher,
+    ),
+  );
+  return storeSession(normalizedUrl, username, session, database);
+}
+
+export async function createPairingCode(
+  database: ForgeDatabase = db,
+  fetcher: typeof fetch = fetch,
+): Promise<{ code: string; expiresAt: string }> {
+  const settings = await database.syncSettings.get('primary');
+  if (!settings) throw new Error('Connect this device to the sync server first.');
+  const result = await requestJson(
+    `${settings.serverUrl}/api/pairing`,
+    { method: 'POST', headers: { authorization: `Bearer ${settings.sessionToken}` } },
+    fetcher,
+  );
+  if (
+    !isRecordObject(result) ||
+    typeof result.code !== 'string' ||
+    typeof result.expiresAt !== 'string' ||
+    Number.isNaN(Date.parse(result.expiresAt))
+  )
+    throw new Error('The sync server returned an invalid pairing code.');
+  return { code: result.code, expiresAt: result.expiresAt };
+}
+
+export async function createRecoveryCodes(
+  database: ForgeDatabase = db,
+  fetcher: typeof fetch = fetch,
+): Promise<string[]> {
+  const settings = await database.syncSettings.get('primary');
+  if (!settings) throw new Error('Connect this device to the sync server first.');
+  const result = await requestJson(
+    `${settings.serverUrl}/api/recovery-codes`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${settings.sessionToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ confirm: true }),
+    },
+    fetcher,
+  );
+  if (
+    !isRecordObject(result) ||
+    !Array.isArray(result.codes) ||
+    !result.codes.every((code) => typeof code === 'string')
+  )
+    throw new Error('The sync server returned invalid recovery codes.');
+  return result.codes;
 }
 
 const payload = (

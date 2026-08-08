@@ -48,6 +48,20 @@ interface ChangeRow {
 
 const normalizeUsername = (username: string) => username.trim().toLowerCase();
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
+const normalizeAccessCode = (code: string) =>
+  code
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+const readableCode = (groups: number) => {
+  const bytes = randomBytes(groups * 4);
+  const characters = [...bytes].map((byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length]);
+  return Array.from({ length: groups }, (_, index) =>
+    characters.slice(index * 4, index * 4 + 4).join(''),
+  ).join('-');
+};
 
 async function passwordHash(password: string, salt: Buffer): Promise<Buffer> {
   return (await scrypt(password, salt, 64)) as Buffer;
@@ -182,6 +196,28 @@ export class ForgeSyncStore {
         PRAGMA user_version = 5;
       `);
     }
+    if (version < 6) {
+      this.database.exec(`
+        CREATE TABLE device_pairing_codes (
+          code_hash TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          expires_at TEXT NOT NULL,
+          used_at TEXT,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX device_pairing_codes_account
+          ON device_pairing_codes(account_id, expires_at, used_at);
+        CREATE TABLE recovery_codes (
+          code_hash TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          used_at TEXT,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX recovery_codes_account
+          ON recovery_codes(account_id, used_at);
+        PRAGMA user_version = 6;
+      `);
+    }
   }
 
   async createAccount(
@@ -232,12 +268,75 @@ export class ForgeSyncStore {
     if (candidate.length !== expected.length || !timingSafeEqual(candidate, expected)) {
       throw new Error('Invalid username or password.');
     }
+    return this.issueSession(account.id);
+  }
+
+  private issueSession(accountId: string): { token: string; expiresAt: string } {
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + SESSION_LIFETIME_MS).toISOString();
     this.database
       .prepare('INSERT INTO sessions (token_hash, account_id, expires_at) VALUES (?, ?, ?)')
-      .run(tokenHash(token), account.id, expiresAt);
+      .run(tokenHash(token), accountId, expiresAt);
     return { token, expiresAt };
+  }
+
+  createPairingCode(accountId: string): { code: string; expiresAt: string } {
+    const code = readableCode(3);
+    const createdAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    this.database
+      .prepare(
+        'INSERT INTO device_pairing_codes (code_hash, account_id, expires_at, created_at) VALUES (?, ?, ?, ?)',
+      )
+      .run(tokenHash(normalizeAccessCode(code)), accountId, expiresAt, createdAt);
+    return { code, expiresAt };
+  }
+
+  exchangePairingCode(username: string, code: string): { token: string; expiresAt: string } {
+    const accountId = this.accountIdForUsername(username);
+    if (!accountId) throw new Error('Invalid or expired pairing code.');
+    const timestamp = new Date().toISOString();
+    const consume = this.database.transaction(() => {
+      const result = this.database
+        .prepare(
+          'UPDATE device_pairing_codes SET used_at = ? WHERE code_hash = ? AND account_id = ? AND used_at IS NULL AND expires_at > ?',
+        )
+        .run(timestamp, tokenHash(normalizeAccessCode(code)), accountId, timestamp);
+      if (result.changes !== 1) throw new Error('Invalid or expired pairing code.');
+      return this.issueSession(accountId);
+    });
+    return consume();
+  }
+
+  createRecoveryCodes(accountId: string, count = 8): string[] {
+    const codes = Array.from({ length: count }, () => readableCode(4));
+    const createdAt = new Date().toISOString();
+    const replace = this.database.transaction(() => {
+      this.database.prepare('DELETE FROM recovery_codes WHERE account_id = ?').run(accountId);
+      const insert = this.database.prepare(
+        'INSERT INTO recovery_codes (code_hash, account_id, created_at) VALUES (?, ?, ?)',
+      );
+      for (const code of codes)
+        insert.run(tokenHash(normalizeAccessCode(code)), accountId, createdAt);
+    });
+    replace();
+    return codes;
+  }
+
+  exchangeRecoveryCode(username: string, code: string): { token: string; expiresAt: string } {
+    const accountId = this.accountIdForUsername(username);
+    if (!accountId) throw new Error('Invalid or already used recovery code.');
+    const timestamp = new Date().toISOString();
+    const consume = this.database.transaction(() => {
+      const result = this.database
+        .prepare(
+          'UPDATE recovery_codes SET used_at = ? WHERE code_hash = ? AND account_id = ? AND used_at IS NULL',
+        )
+        .run(timestamp, tokenHash(normalizeAccessCode(code)), accountId);
+      if (result.changes !== 1) throw new Error('Invalid or already used recovery code.');
+      return this.issueSession(accountId);
+    });
+    return consume();
   }
 
   authenticate(token: string): string | null {

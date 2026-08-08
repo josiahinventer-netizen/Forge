@@ -113,11 +113,40 @@ export function createForgeServer(options: ForgeServerOptions) {
         json(response, 200, session);
         return;
       }
+      if (
+        request.method === 'POST' &&
+        (url.pathname === '/api/pairing/exchange' || url.pathname === '/api/recovery/exchange')
+      ) {
+        const body = fields(await readJson(request));
+        if (!body || typeof body.username !== 'string' || typeof body.code !== 'string') {
+          json(response, 400, { error: 'Username and code are required.' });
+          return;
+        }
+        const session =
+          url.pathname === '/api/pairing/exchange'
+            ? store.exchangePairingCode(body.username, body.code)
+            : store.exchangeRecoveryCode(body.username, body.code);
+        json(response, 200, session);
+        return;
+      }
 
       const token = bearerToken(request);
       const accountId = token ? store.authenticate(token) : null;
       if (!accountId) {
         json(response, 401, { error: 'A valid device session is required.' });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/pairing') {
+        json(response, 201, store.createPairingCode(accountId));
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/recovery-codes') {
+        const body = fields(await readJson(request));
+        if (!body || body.confirm !== true) {
+          json(response, 400, { error: 'Explicit confirmation is required.' });
+          return;
+        }
+        json(response, 201, { codes: store.createRecoveryCodes(accountId) });
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/sync/push') {
@@ -199,6 +228,8 @@ export function createForgeServer(options: ForgeServerOptions) {
         message.includes('Password') ||
         message.includes('already exists') ||
         message.includes('Invalid username') ||
+        message.includes('pairing code') ||
+        message.includes('recovery code') ||
         message.includes('JSON') ||
         message.includes('1 MB');
       json(response, clientError ? 400 : 500, {

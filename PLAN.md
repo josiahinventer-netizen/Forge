@@ -106,7 +106,7 @@
 - [x] Local HTTPS identity generated and trusted by the computer
 - [x] Keep the sync database and private TLS key outside the OneDrive-hosted repository
 - [x] Install the local HTTPS certificate authority on the Android phone
-- [ ] One-time device pairing and recovery codes
+- [x] One-time device pairing and recovery codes, stored only as hashes on the local server
 - [x] PWA local-account sign-in and IndexedDB push/pull integration
 - [x] Foreground automatic retry and visible sync status
 - [x] Immediate local-edit detection and authenticated server change notifications

@@ -15,9 +15,9 @@ afterEach(() => {
 });
 
 describe('ForgeSyncStore accounts', () => {
-  it('migrates the local server database through conflict resolution schema version 5', () => {
+  it('migrates the local server database through access-code schema version 6', () => {
     const store = makeStore();
-    expect(store.database.pragma('user_version', { simple: true })).toBe(5);
+    expect(store.database.pragma('user_version', { simple: true })).toBe(6);
     expect(
       store.database
         .prepare(
@@ -30,6 +30,71 @@ describe('ForgeSyncStore accounts', () => {
         .prepare("SELECT name FROM pragma_table_info('sync_conflicts') WHERE name = 'resolution'")
         .get(),
     ).toBeTruthy();
+    expect(
+      store.database
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'device_pairing_codes'",
+        )
+        .get(),
+    ).toBeTruthy();
+    expect(
+      store.database
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'recovery_codes'")
+        .get(),
+    ).toBeTruthy();
+  });
+
+  it('issues expiring one-time pairing codes without storing their plaintext', async () => {
+    const store = makeStore();
+    const account = await store.createAccount('Josiah', 'long secure password');
+    await store.createAccount('SomeoneElse', 'another secure password');
+    const pairing = store.createPairingCode(account.id);
+
+    expect(pairing.code).toMatch(/^[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}$/);
+    expect(Date.parse(pairing.expiresAt)).toBeGreaterThan(Date.now());
+    expect(
+      JSON.stringify(store.database.prepare('SELECT * FROM device_pairing_codes').all()),
+    ).not.toContain(pairing.code.replaceAll('-', ''));
+    expect(() => store.exchangePairingCode('someoneelse', pairing.code)).toThrow(
+      'Invalid or expired pairing code.',
+    );
+
+    const session = store.exchangePairingCode('josiah', pairing.code.toLowerCase());
+    expect(store.authenticate(session.token)).toBe(account.id);
+    expect(() => store.exchangePairingCode('josiah', pairing.code)).toThrow(
+      'Invalid or expired pairing code.',
+    );
+
+    const expired = store.createPairingCode(account.id);
+    store.database.prepare('UPDATE device_pairing_codes SET expires_at = ?').run('2000-01-01');
+    expect(() => store.exchangePairingCode('josiah', expired.code)).toThrow(
+      'Invalid or expired pairing code.',
+    );
+  });
+
+  it('consumes recovery codes once and invalidates an older set on rotation', async () => {
+    const store = makeStore();
+    const account = await store.createAccount('Josiah', 'long secure password');
+    const firstSet = store.createRecoveryCodes(account.id);
+
+    expect(firstSet).toHaveLength(8);
+    expect(new Set(firstSet).size).toBe(8);
+    expect(
+      JSON.stringify(store.database.prepare('SELECT * FROM recovery_codes').all()),
+    ).not.toContain(firstSet[0]?.replaceAll('-', ''));
+    const session = store.exchangeRecoveryCode('josiah', firstSet[0] ?? '');
+    expect(store.authenticate(session.token)).toBe(account.id);
+    expect(() => store.exchangeRecoveryCode('josiah', firstSet[0] ?? '')).toThrow(
+      'Invalid or already used recovery code.',
+    );
+
+    const secondSet = store.createRecoveryCodes(account.id);
+    expect(() => store.exchangeRecoveryCode('josiah', firstSet[1] ?? '')).toThrow(
+      'Invalid or already used recovery code.',
+    );
+    expect(store.authenticate(store.exchangeRecoveryCode('josiah', secondSet[0] ?? '').token)).toBe(
+      account.id,
+    );
   });
 
   it('creates separate accounts and authenticates expiring device sessions', async () => {

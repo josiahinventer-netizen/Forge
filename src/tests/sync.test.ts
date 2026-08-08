@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ForgeDatabase } from '../database/db';
-import { connectDevice, listSyncConflicts, resolveSyncConflict, syncNow } from '../services/sync';
+import {
+  connectDevice,
+  connectWithAccessCode,
+  createPairingCode,
+  createRecoveryCodes,
+  listSyncConflicts,
+  resolveSyncConflict,
+  syncNow,
+} from '../services/sync';
 import type { Skill } from '../types/models';
 
 const databases: ForgeDatabase[] = [];
@@ -50,6 +58,60 @@ describe('device synchronization', () => {
     expect(JSON.stringify(await database.syncSettings.toArray())).not.toContain(
       'a long local password',
     );
+  });
+
+  it('connects with a one-time access code without storing that code', async () => {
+    const database = makeDatabase();
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({ token: 'paired-token', expiresAt: '2099-01-01T00:00:00.000Z' }),
+      );
+
+    await connectWithAccessCode(
+      'https://computer.local:8787/',
+      'Josiah',
+      'ABCD-EFGH-JKLM',
+      'pairing',
+      database,
+      fetcher,
+    );
+
+    expect(fetcher.mock.calls[0]?.[0]).toBe('https://computer.local:8787/api/pairing/exchange');
+    expect(fetcher.mock.calls[0]?.[1]?.body).toBe(
+      JSON.stringify({ username: 'Josiah', code: 'ABCD-EFGH-JKLM' }),
+    );
+    expect(JSON.stringify(await database.syncSettings.toArray())).not.toContain('ABCD-EFGH-JKLM');
+    expect(await database.syncSettings.get('primary')).toMatchObject({
+      username: 'josiah',
+      sessionToken: 'paired-token',
+    });
+  });
+
+  it('requests pairing and recovery codes with the current authenticated session', async () => {
+    const database = makeDatabase();
+    await database.syncSettings.put({
+      id: 'primary',
+      serverUrl: 'https://computer.local:8787',
+      username: 'josiah',
+      sessionToken: 'current-token',
+      sessionExpiresAt: '2099-01-01T00:00:00.000Z',
+      cursor: 0,
+    });
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({ code: 'ABCD-EFGH-JKLM', expiresAt: '2099-01-01T00:10:00.000Z' }, 201),
+      )
+      .mockResolvedValueOnce(jsonResponse({ codes: ['ABCD-EFGH-JKLM-NPQR'] }, 201));
+
+    expect(await createPairingCode(database, fetcher)).toEqual({
+      code: 'ABCD-EFGH-JKLM',
+      expiresAt: '2099-01-01T00:10:00.000Z',
+    });
+    expect(await createRecoveryCodes(database, fetcher)).toEqual(['ABCD-EFGH-JKLM-NPQR']);
+    expect(fetcher.mock.calls[0]?.[1]?.headers).toEqual({ authorization: 'Bearer current-token' });
+    expect(fetcher.mock.calls[1]?.[1]?.body).toBe(JSON.stringify({ confirm: true }));
   });
 
   it('pushes local records and applies newer records pulled from the computer', async () => {

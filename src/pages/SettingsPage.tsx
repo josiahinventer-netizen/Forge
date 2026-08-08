@@ -5,6 +5,9 @@ import { db, SCHEMA_VERSION } from '../database/db';
 import { createExport, downloadExport, importData, validateImport } from '../services/dataTransfer';
 import {
   connectDevice,
+  connectWithAccessCode,
+  createPairingCode,
+  createRecoveryCodes,
   listSyncConflicts,
   resolveSyncConflict,
   syncNow,
@@ -23,6 +26,10 @@ export function SettingsPage() {
   const [serverUrl, setServerUrl] = useState('https://192.168.0.187:8787');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [accessMode, setAccessMode] = useState<'password' | 'pairing' | 'recovery'>('password');
+  const [accessCode, setAccessCode] = useState('');
+  const [pairingCode, setPairingCode] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [syncBusy, setSyncBusy] = useState(false);
   const [conflicts, setConflicts] = useState<SyncConflictRecord[] | null>(null);
   const [conflictBusy, setConflictBusy] = useState(false);
@@ -49,6 +56,52 @@ export function SettingsPage() {
       setStatus(`Sync complete: checked ${result.pushed} local and received ${result.pulled}.`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Synchronization failed.');
+    } finally {
+      setSyncBusy(false);
+    }
+  };
+
+  const connectWithCode = async (kind: 'pairing' | 'recovery') => {
+    setSyncBusy(true);
+    setStatus('');
+    try {
+      await connectWithAccessCode(serverUrl, username, accessCode, kind);
+      setAccessCode('');
+      const result = await syncNow();
+      setStatus(`Connected and synchronized ${result.pushed} local records.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not connect to Forge Sync.');
+    } finally {
+      setSyncBusy(false);
+    }
+  };
+
+  const generatePairingCode = async () => {
+    setSyncBusy(true);
+    setStatus('');
+    try {
+      setPairingCode(await createPairingCode());
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not create a pairing code.');
+    } finally {
+      setSyncBusy(false);
+    }
+  };
+
+  const generateRecoveryCodes = async () => {
+    if (
+      !window.confirm(
+        'Create a new recovery-code set? Every unused code from an older set will stop working.',
+      )
+    )
+      return;
+    setSyncBusy(true);
+    setStatus('');
+    try {
+      setRecoveryCodes(await createRecoveryCodes());
+      setStatus('Recovery codes created. Save them now; Forge will not show them again.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not create recovery codes.');
     } finally {
       setSyncBusy(false);
     }
@@ -158,6 +211,46 @@ export function SettingsPage() {
               <button disabled={syncBusy} onClick={() => void synchronize()}>
                 {syncBusy ? 'Synchronizingâ€¦' : 'Sync now'}
               </button>
+              <div className="actions">
+                <button disabled={syncBusy} onClick={() => void generatePairingCode()}>
+                  Pair another device
+                </button>
+                <button disabled={syncBusy} onClick={() => void generateRecoveryCodes()}>
+                  Create recovery codes
+                </button>
+              </div>
+              {pairingCode && (
+                <div className="evidence" role="status">
+                  <p>
+                    On the other device, choose <b>Pairing code</b> and enter:
+                  </p>
+                  <p>
+                    <code>{pairingCode.code}</code>
+                  </p>
+                  <p className="muted">
+                    This code works once and expires at{' '}
+                    {new Date(pairingCode.expiresAt).toLocaleTimeString()}.
+                  </p>
+                </div>
+              )}
+              {recoveryCodes.length > 0 && (
+                <div className="evidence" role="status">
+                  <p>
+                    <b>Save these somewhere private.</b> Each code works once. They are not included
+                    in Forge exports or shown again.
+                  </p>
+                  <ul>
+                    {recoveryCodes.map((code) => (
+                      <li key={code}>
+                        <code>{code}</code>
+                      </li>
+                    ))}
+                  </ul>
+                  <button type="button" onClick={() => setRecoveryCodes([])}>
+                    I saved these
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <form
@@ -187,33 +280,78 @@ export function SettingsPage() {
                   onChange={(event) => setUsername(event.target.value)}
                 />
               </label>
-              <label>
-                Password
-                <input
-                  required
-                  minLength={12}
-                  type="password"
-                  autoComplete="off"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </label>
-              <div className="actions">
-                <button disabled={syncBusy} type="submit">
-                  Sign in
-                </button>
-                <button
-                  disabled={syncBusy || username.trim().length < 3 || password.length < 12}
-                  type="button"
-                  onClick={() => void connect(true)}
-                >
-                  Create local account
-                </button>
+              <div className="actions" aria-label="Connection method">
+                {(['password', 'pairing', 'recovery'] as const).map((mode) => (
+                  <button
+                    aria-pressed={accessMode === mode}
+                    key={mode}
+                    type="button"
+                    onClick={() => setAccessMode(mode)}
+                  >
+                    {mode === 'password'
+                      ? 'Password'
+                      : mode === 'pairing'
+                        ? 'Pairing code'
+                        : 'Recovery code'}
+                  </button>
+                ))}
               </div>
-              <p className="muted">
-                This account exists only on your computer. Your password is used to sign in and is
-                not saved on this device.
-              </p>
+              {accessMode === 'password' ? (
+                <>
+                  <label>
+                    Password
+                    <input
+                      required
+                      minLength={12}
+                      type="password"
+                      autoComplete="off"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                    />
+                  </label>
+                  <div className="actions">
+                    <button disabled={syncBusy} type="submit">
+                      Sign in
+                    </button>
+                    <button
+                      disabled={syncBusy || username.trim().length < 3 || password.length < 12}
+                      type="button"
+                      onClick={() => void connect(true)}
+                    >
+                      Create local account
+                    </button>
+                  </div>
+                  <p className="muted">
+                    This account exists only on your computer. Your password is used to sign in and
+                    is not saved on this device.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <label>
+                    {accessMode === 'pairing' ? 'Pairing code' : 'Recovery code'}
+                    <input
+                      required
+                      autoCapitalize="characters"
+                      autoComplete="off"
+                      value={accessCode}
+                      onChange={(event) => setAccessCode(event.target.value)}
+                    />
+                  </label>
+                  <button
+                    disabled={syncBusy || username.trim().length < 3 || accessCode.length < 8}
+                    type="button"
+                    onClick={() => void connectWithCode(accessMode)}
+                  >
+                    Connect this device
+                  </button>
+                  <p className="muted">
+                    {accessMode === 'pairing'
+                      ? 'Create this short-lived code on a device that is already connected.'
+                      : 'Use one of the private one-time codes you saved earlier.'}
+                  </p>
+                </>
+              )}
             </form>
           )}
         </Card>

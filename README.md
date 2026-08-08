@@ -69,13 +69,18 @@ The server creates `%LOCALAPPDATA%\Forge\forge-sync.sqlite` on Windows, outside 
 - Cursor-based downloads, stale-write protection, and deletion tombstones
 - Authenticated change notifications for near-real-time synchronization between open devices
 - Preserved stale or same-time conflicting versions in the local `sync_conflicts` archive
+- Ten-minute, one-use device pairing codes and one-use account recovery codes
 - Account-isolated conflict review that compares changed fields and can deliberately keep the
   current record or restore the preserved version
 - Automatic at-most-daily AES-256-GCM snapshots of the local SQLite database, encrypted with a
   computer-local random key
 - A strict GitHub Pages origin allowlist
 
-No personal records are stored on GitHub. Google Drive archive mirroring is optional and is enabled on this computer to provide an off-device backup and a ChatGPT-readable bridge; the local SQLite database remains authoritative. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge asks browsers not to save or autofill the local-account password; browser password managers remain separately controlled by the user. Forge still needs recovery codes and backup-retention controls. Do not expose port `8787` through a router or firewall.
+No personal records are stored on GitHub. Google Drive archive mirroring is optional and is enabled on this computer to provide an off-device backup and a ChatGPT-readable bridge; the local SQLite database remains authoritative. After the Android phone trusts the computer's public certificate authority, the PWA can create or sign in to a local account and synchronize while Forge is open. Forge asks browsers not to save or autofill the local-account password; browser password managers remain separately controlled by the user. Forge still needs backup-retention controls. Do not expose port `8787` through a router or firewall.
+
+To connect another phone or browser without typing the account password, open **Data transfer → Computer synchronization** on an already connected device and choose **Pair another device**. On the new device, select **Pairing code**, enter the same local username and computer address, and use the displayed code within ten minutes. A pairing code works only once.
+
+Use **Create recovery codes** to generate eight longer one-use codes for regaining access when no connected device is available. Save them somewhere private and offline when they are displayed: Forge never shows them again, and creating a new set invalidates every unused older code. Pairing and recovery code plaintext is never stored in SQLite, exported, mirrored to Drive, or committed to GitHub; the local server stores only SHA-256 hashes. Anyone holding an unused code and able to reach the local server can connect to that account, so treat the codes like passwords.
 
 ### Encrypted computer backups
 
