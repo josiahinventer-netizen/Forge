@@ -4,6 +4,8 @@ export const SYNC_ENTITY_TYPES = [
   'capability',
   'attachment',
   'documentEvidence',
+  'mindNode',
+  'mindEdge',
   'todo',
   'activity',
   'todoOccurrence',

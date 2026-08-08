@@ -10,9 +10,11 @@ import type {
   Todo,
   TodoOccurrence,
   ReminderEvent,
+  MindNode,
+  MindEdge,
 } from '../types/models';
 
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
@@ -25,6 +27,8 @@ export class ForgeDatabase extends Dexie {
   activities!: EntityTable<Activity, 'id'>;
   todoOccurrences!: EntityTable<TodoOccurrence, 'id'>;
   reminderEvents!: EntityTable<ReminderEvent, 'id'>;
+  mindNodes!: EntityTable<MindNode, 'id'>;
+  mindEdges!: EntityTable<MindEdge, 'id'>;
 
   constructor(name = 'forge') {
     super(name);
@@ -225,6 +229,26 @@ export class ForgeDatabase extends Dexie {
       attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
       documentEvidence:
         'id, ownerType, ownerId, sourceType, verificationStatus, issuedAt, archived, updatedAt, *tags',
+      todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
+      todoOccurrences: 'id, todoId, completedAt, archived, updatedAt, *tags',
+      reminderEvents:
+        'id, todoId, occurrenceKey, detectedAt, acknowledgedAt, action, archived, updatedAt',
+      activities: 'id, title, occurredAt, archived, updatedAt, *tags',
+      syncSettings: 'id',
+    });
+
+    // V14 adds semantic mind-graph nodes and first-class edges without changing existing records.
+    this.version(14).stores({
+      skills: 'id, name, category, archived, updatedAt, *tags',
+      resources:
+        'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
+      capabilities: 'id, name, category, archived, updatedAt, *tags',
+      attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+      documentEvidence:
+        'id, ownerType, ownerId, sourceType, verificationStatus, issuedAt, archived, updatedAt, *tags',
+      mindNodes: 'id, title, type, status, importance, archived, updatedAt, *tags',
+      mindEdges:
+        'id, source.entityId, target.entityId, relationshipType, archived, updatedAt, *tags',
       todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
       todoOccurrences: 'id, todoId, completedAt, archived, updatedAt, *tags',
       reminderEvents:

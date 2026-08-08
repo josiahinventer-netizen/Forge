@@ -7,6 +7,8 @@ import type {
   ExportBundle,
   EvidenceAttachment,
   DocumentEvidence,
+  MindNode,
+  MindEdge,
   Resource,
   Skill,
   Todo,
@@ -21,6 +23,8 @@ export interface ImportResult {
   skills: number;
   resources: number;
   capabilities: number;
+  mindNodes: number;
+  mindEdges: number;
 }
 export type ImportValidationResult =
   { valid: true; bundle: ExportBundle } | { valid: false; errors: string[] };
@@ -99,7 +103,7 @@ export function isResource(value: unknown): value is Resource {
 export function isAttachment(value: unknown): value is EvidenceAttachment {
   if (!isRecord(value) || !hasBaseRecord(value)) return false;
   return (
-    ['resource', 'skill', 'capability', 'activity'].includes(String(value.ownerType)) &&
+    ['resource', 'skill', 'capability', 'activity', 'mindNode'].includes(String(value.ownerType)) &&
     typeof value.ownerId === 'string' &&
     value.ownerId.length > 0 &&
     ['Item photo', 'Serial label', 'Receipt', 'Condition', 'Project result', 'Other'].includes(
@@ -151,6 +155,80 @@ export function isDocumentEvidence(value: unknown): value is DocumentEvidence {
     ['Confirmed', 'Document-supported', 'Activity-supported', 'Inferred', 'Needs review'].includes(
       String(value.verificationStatus),
     )
+  );
+}
+
+const isEntityReference = (value: unknown) =>
+  isRecord(value) &&
+  ['mindNode', 'skill', 'resource', 'capability', 'todo', 'activity'].includes(
+    String(value.entityType),
+  ) &&
+  typeof value.entityId === 'string' &&
+  value.entityId.length > 0;
+
+export function isMindNode(value: unknown): value is MindNode {
+  if (!isRecord(value) || !hasBaseRecord(value)) return false;
+  return (
+    typeof value.title === 'string' &&
+    value.title.length > 0 &&
+    [
+      'identity',
+      'value',
+      'belief',
+      'principle',
+      'goal',
+      'interest',
+      'knowledge',
+      'concept',
+      'project',
+      'person',
+      'experience',
+      'habit',
+      'question',
+      'custom',
+    ].includes(String(value.type)) &&
+    (value.type !== 'custom' ||
+      (typeof value.customType === 'string' && value.customType.length > 0)) &&
+    typeof value.description === 'string' &&
+    typeof value.notes === 'string' &&
+    ['active', 'developing', 'established', 'paused'].includes(String(value.status)) &&
+    typeof value.confidence === 'number' &&
+    value.confidence >= 0 &&
+    value.confidence <= 100 &&
+    typeof value.importance === 'number' &&
+    value.importance >= 0 &&
+    value.importance <= 100 &&
+    (value.familiarityLevel === undefined || isLevel(value.familiarityLevel)) &&
+    (value.practicalLevel === undefined || isLevel(value.practicalLevel)) &&
+    (value.lastReviewedAt === undefined || isDate(value.lastReviewedAt))
+  );
+}
+
+export function isMindEdge(value: unknown): value is MindEdge {
+  if (!isRecord(value) || !hasBaseRecord(value)) return false;
+  return (
+    isEntityReference(value.source) &&
+    isEntityReference(value.target) &&
+    [
+      'parent of',
+      'part of',
+      'depends on',
+      'prerequisite for',
+      'related to',
+      'supports',
+      'conflicts with',
+      'derived from',
+      'used by',
+      'learned from',
+      'contributes to',
+      'motivated by',
+      'requires',
+      'applies to',
+      'custom',
+    ].includes(String(value.relationshipType)) &&
+    (value.relationshipType !== 'custom' ||
+      (typeof value.customRelationship === 'string' && value.customRelationship.length > 0)) &&
+    typeof value.notes === 'string'
   );
 }
 
@@ -344,6 +422,8 @@ export function validateImport(value: unknown): ImportValidationResult {
   const activities = value.records.activities ?? [];
   const todoOccurrences = value.records.todoOccurrences ?? [];
   const reminderEvents = value.records.reminderEvents ?? [];
+  const mindNodes = value.records.mindNodes ?? [];
+  const mindEdges = value.records.mindEdges ?? [];
   if (!Array.isArray(skills) || !skills.every(isSkill)) errors.push('Skills contain invalid data.');
   if (!Array.isArray(resources) || !resources.every(isResource))
     errors.push('Resources contain invalid data.');
@@ -360,6 +440,10 @@ export function validateImport(value: unknown): ImportValidationResult {
     errors.push('Todo occurrences contain invalid data.');
   if (!Array.isArray(reminderEvents) || !reminderEvents.every(isReminderEvent))
     errors.push('Reminder events contain invalid data.');
+  if (!Array.isArray(mindNodes) || !mindNodes.every(isMindNode))
+    errors.push('Mind nodes contain invalid data.');
+  if (!Array.isArray(mindEdges) || !mindEdges.every(isMindEdge))
+    errors.push('Mind relationships contain invalid data.');
   if (errors.length) return { valid: false, errors };
 
   const bundle = value as unknown as ExportBundle;
@@ -378,6 +462,39 @@ export function validateImport(value: unknown): ImportValidationResult {
     errors.push('Todo occurrences contain duplicate IDs.');
   if (!hasUniqueIds(bundle.records.reminderEvents ?? []))
     errors.push('Reminder events contain duplicate IDs.');
+  if (!hasUniqueIds(bundle.records.mindNodes ?? []))
+    errors.push('Mind nodes contain duplicate IDs.');
+  if (!hasUniqueIds(bundle.records.mindEdges ?? []))
+    errors.push('Mind relationships contain duplicate IDs.');
+  const graphRecordIds = new Set([
+    ...(bundle.records.mindNodes ?? []).map((item) => `mindNode:${item.id}`),
+    ...bundle.records.skills.map((item) => `skill:${item.id}`),
+    ...bundle.records.resources.map((item) => `resource:${item.id}`),
+    ...bundle.records.capabilities.map((item) => `capability:${item.id}`),
+    ...(bundle.records.todos ?? []).map((item) => `todo:${item.id}`),
+    ...(bundle.records.activities ?? []).map((item) => `activity:${item.id}`),
+  ]);
+  for (const edge of bundle.records.mindEdges ?? []) {
+    if (!graphRecordIds.has(`${edge.source.entityType}:${edge.source.entityId}`))
+      errors.push(`Mind relationship ${edge.id} has a missing source.`);
+    if (!graphRecordIds.has(`${edge.target.entityType}:${edge.target.entityId}`))
+      errors.push(`Mind relationship ${edge.id} has a missing target.`);
+    if (
+      edge.source.entityType === edge.target.entityType &&
+      edge.source.entityId === edge.target.entityId
+    )
+      errors.push(`Mind relationship ${edge.id} connects a record to itself.`);
+    if (edge.source.entityType !== 'mindNode' && edge.target.entityType !== 'mindNode')
+      errors.push(`Mind relationship ${edge.id} does not include a mind node.`);
+  }
+  const activeRelationshipKeys = (bundle.records.mindEdges ?? [])
+    .filter((edge) => !edge.archived)
+    .map(
+      (edge) =>
+        `${edge.source.entityType}:${edge.source.entityId}|${edge.relationshipType}|${edge.customRelationship?.trim().toLowerCase() ?? ''}|${edge.target.entityType}:${edge.target.entityId}`,
+    );
+  if (new Set(activeRelationshipKeys).size !== activeRelationshipKeys.length)
+    errors.push('Mind relationships contain duplicate active connections.');
   return errors.length ? { valid: false, errors } : { valid: true, bundle };
 }
 
@@ -409,6 +526,8 @@ export async function importData(
       database.activities,
       database.todoOccurrences,
       database.reminderEvents,
+      database.mindNodes,
+      database.mindEdges,
     ],
     async () => {
       if (mode === 'replace') {
@@ -422,6 +541,8 @@ export async function importData(
           database.activities.clear(),
           database.todoOccurrences.clear(),
           database.reminderEvents.clear(),
+          database.mindNodes.clear(),
+          database.mindEdges.clear(),
         ]);
         await database.skills.bulkPut(bundle.records.skills);
         await database.resources.bulkPut(bundle.records.resources);
@@ -432,6 +553,8 @@ export async function importData(
         await database.activities.bulkPut(bundle.records.activities ?? []);
         await database.todoOccurrences.bulkPut(bundle.records.todoOccurrences ?? []);
         await database.reminderEvents.bulkPut(bundle.records.reminderEvents ?? []);
+        await database.mindNodes.bulkPut(bundle.records.mindNodes ?? []);
+        await database.mindEdges.bulkPut(bundle.records.mindEdges ?? []);
         return;
       }
 
@@ -468,12 +591,20 @@ export async function importData(
       await database.reminderEvents.bulkPut(
         newerRecords(await database.reminderEvents.toArray(), bundle.records.reminderEvents ?? []),
       );
+      await database.mindNodes.bulkPut(
+        newerRecords(await database.mindNodes.toArray(), bundle.records.mindNodes ?? []),
+      );
+      await database.mindEdges.bulkPut(
+        newerRecords(await database.mindEdges.toArray(), bundle.records.mindEdges ?? []),
+      );
     },
   );
   return {
     skills: bundle.records.skills.length,
     resources: bundle.records.resources.length,
     capabilities: bundle.records.capabilities.length,
+    mindNodes: bundle.records.mindNodes?.length ?? 0,
+    mindEdges: bundle.records.mindEdges?.length ?? 0,
   };
 }
 
@@ -492,6 +623,8 @@ export async function createExport(database: ForgeDatabase = db): Promise<Export
       activities: await database.activities.toArray(),
       todoOccurrences: await database.todoOccurrences.toArray(),
       reminderEvents: await database.reminderEvents.toArray(),
+      mindNodes: await database.mindNodes.toArray(),
+      mindEdges: await database.mindEdges.toArray(),
     },
   };
 }

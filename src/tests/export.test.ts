@@ -90,6 +90,33 @@ describe('JSON export', () => {
       tags: [],
       archived: false,
     });
+    await database.mindNodes.put({
+      id: 'mechanical-engineering',
+      title: 'Mechanical engineering',
+      type: 'knowledge',
+      description: 'Engineering knowledge branch.',
+      notes: '',
+      status: 'developing',
+      confidence: 70,
+      importance: 90,
+      familiarityLevel: 3,
+      practicalLevel: 2,
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+      tags: ['engineering'],
+      archived: false,
+    });
+    await database.mindEdges.put({
+      id: 'engineering-carpentry',
+      source: { entityType: 'mindNode', entityId: 'mechanical-engineering' },
+      target: { entityType: 'skill', entityId: 'active' },
+      relationshipType: 'related to',
+      notes: 'Existing skill participates without being copied.',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+      tags: [],
+      archived: false,
+    });
     await database.todos.put({
       id: 'todo',
       title: 'Build practice joint',
@@ -180,6 +207,11 @@ describe('JSON export', () => {
     expect(parsed.records.capabilities[0]?.requiredSkills[0]?.skillId).toBe('active');
     expect(parsed.records.attachments?.[0]?.ownerId).toBe('active');
     expect(parsed.records.documentEvidence?.[0]?.sourceName).toBe('Josiah resume');
+    expect(parsed.records.mindNodes?.[0]?.title).toBe('Mechanical engineering');
+    expect(parsed.records.mindEdges?.[0]?.target).toEqual({
+      entityType: 'skill',
+      entityId: 'active',
+    });
     expect(parsed.records.todos?.[0]?.purpose).toBe('Practice carpentry');
     expect(parsed.records.todos?.[0]?.checklist?.[0]?.text).toBe('Measure boards');
     expect(parsed.records.activities?.[0]?.skillPractice[0]?.skillId).toBe('active');

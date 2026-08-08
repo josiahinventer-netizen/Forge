@@ -79,7 +79,7 @@ const documentEvidenceOperation = z.object({
   entityType: z.literal('documentEvidence'),
   record: z.object({
     id: z.string().min(1).optional(),
-    ownerType: z.enum(['resource', 'skill', 'capability', 'activity']),
+    ownerType: z.enum(['resource', 'skill', 'capability', 'activity', 'mindNode']),
     ownerId: z.string().min(1),
     title: z.string().min(1),
     sourceType: z.enum([
@@ -104,6 +104,75 @@ const documentEvidenceOperation = z.object({
       'Inferred',
       'Needs review',
     ]),
+    tags: z.array(z.string()).optional(),
+    archived: z.boolean().optional(),
+  }),
+});
+const graphEntityReference = z.object({
+  entityType: z.enum(['mindNode', 'skill', 'resource', 'capability', 'todo', 'activity']),
+  entityId: z.string().min(1),
+});
+const mindNodeOperation = z.object({
+  operation: z.literal('save'),
+  entityType: z.literal('mindNode'),
+  record: z.object({
+    id: z.string().min(1).optional(),
+    title: z.string().min(1),
+    type: z.enum([
+      'identity',
+      'value',
+      'belief',
+      'principle',
+      'goal',
+      'interest',
+      'knowledge',
+      'concept',
+      'project',
+      'person',
+      'experience',
+      'habit',
+      'question',
+      'custom',
+    ]),
+    customType: z.string().min(1).optional(),
+    description: z.string().optional(),
+    notes: z.string().optional(),
+    status: z.enum(['active', 'developing', 'established', 'paused']).optional(),
+    confidence: z.number().min(0).max(100).optional(),
+    importance: z.number().min(0).max(100).optional(),
+    familiarityLevel: z.number().int().min(0).max(5).optional(),
+    practicalLevel: z.number().int().min(0).max(5).optional(),
+    lastReviewedAt: z.string().datetime().optional(),
+    tags: z.array(z.string()).optional(),
+    archived: z.boolean().optional(),
+  }),
+});
+const mindEdgeOperation = z.object({
+  operation: z.literal('save'),
+  entityType: z.literal('mindEdge'),
+  record: z.object({
+    id: z.string().min(1).optional(),
+    source: graphEntityReference,
+    target: graphEntityReference,
+    relationshipType: z.enum([
+      'parent of',
+      'part of',
+      'depends on',
+      'prerequisite for',
+      'related to',
+      'supports',
+      'conflicts with',
+      'derived from',
+      'used by',
+      'learned from',
+      'contributes to',
+      'motivated by',
+      'requires',
+      'applies to',
+      'custom',
+    ]),
+    customRelationship: z.string().min(1).optional(),
+    notes: z.string().optional(),
     tags: z.array(z.string()).optional(),
     archived: z.boolean().optional(),
   }),
@@ -211,6 +280,8 @@ export const driveInboxRequestSchema = z.object({
         todoOperation,
         activityOperation,
         documentEvidenceOperation,
+        mindNodeOperation,
+        mindEdgeOperation,
       ]),
     )
     .min(1)
@@ -248,6 +319,14 @@ const defaults: Record<SyncEntityType, Record<string, unknown>> = {
   },
   attachment: {},
   documentEvidence: { notes: '' },
+  mindNode: {
+    description: '',
+    notes: '',
+    status: 'active',
+    confidence: 50,
+    importance: 50,
+  },
+  mindEdge: { notes: '' },
   todo: {
     description: '',
     purpose: '',
@@ -316,6 +395,12 @@ export function createDriveArchive(
       documentEvidence: live
         .filter((record) => record.entityType === 'documentEvidence')
         .map((record) => record.payload),
+      mindNodes: live
+        .filter((record) => record.entityType === 'mindNode')
+        .map((record) => record.payload),
+      mindEdges: live
+        .filter((record) => record.entityType === 'mindEdge')
+        .map((record) => record.payload),
       todos: live.filter((record) => record.entityType === 'todo').map((record) => record.payload),
       activities: live
         .filter((record) => record.entityType === 'activity')
@@ -342,6 +427,8 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
   const todoOccurrences = archive.records.todoOccurrences;
   const reminderEvents = archive.records.reminderEvents;
   const documentEvidence = archive.records.documentEvidence;
+  const mindNodes = archive.records.mindNodes;
+  const mindEdges = archive.records.mindEdges;
   return {
     'Forge Skills.csv': csv(
       [
@@ -499,6 +586,66 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         item?.excerpt,
         item?.notes,
         item?.verificationStatus,
+        item?.archived,
+        item?.updatedAt,
+      ]),
+    ),
+    'Forge Mind Nodes.csv': csv(
+      [
+        'id',
+        'title',
+        'type',
+        'customType',
+        'status',
+        'description',
+        'notes',
+        'confidence',
+        'importance',
+        'familiarityLevel',
+        'practicalLevel',
+        'tags',
+        'archived',
+        'updatedAt',
+      ],
+      mindNodes.map((item) => [
+        item?.id,
+        item?.title,
+        item?.type,
+        item?.customType,
+        item?.status,
+        item?.description,
+        item?.notes,
+        item?.confidence,
+        item?.importance,
+        item?.familiarityLevel,
+        item?.practicalLevel,
+        Array.isArray(item?.tags) ? item.tags.join('; ') : '',
+        item?.archived,
+        item?.updatedAt,
+      ]),
+    ),
+    'Forge Mind Relationships.csv': csv(
+      [
+        'id',
+        'sourceType',
+        'sourceId',
+        'relationshipType',
+        'customRelationship',
+        'targetType',
+        'targetId',
+        'notes',
+        'archived',
+        'updatedAt',
+      ],
+      mindEdges.map((item) => [
+        item?.id,
+        (item?.source as Record<string, unknown> | undefined)?.entityType,
+        (item?.source as Record<string, unknown> | undefined)?.entityId,
+        item?.relationshipType,
+        item?.customRelationship,
+        (item?.target as Record<string, unknown> | undefined)?.entityType,
+        (item?.target as Record<string, unknown> | undefined)?.entityId,
+        item?.notes,
         item?.archived,
         item?.updatedAt,
       ]),
@@ -661,6 +808,33 @@ function buildChanges(
     if (!owner || owner.payload?.archived === true)
       throw new Error(`Document evidence owner ${ownerType} ${ownerId} is missing or archived.`);
   }
+  for (const change of changes.filter((item) => item.entityType === 'mindNode')) {
+    if (change.payload?.type === 'custom' && !String(change.payload.customType ?? '').trim())
+      throw new Error('A custom mind node needs a custom type name.');
+  }
+  for (const change of changes.filter((item) => item.entityType === 'mindEdge')) {
+    const source = change.payload?.source as
+      { entityType?: unknown; entityId?: unknown } | undefined;
+    const target = change.payload?.target as
+      { entityType?: unknown; entityId?: unknown } | undefined;
+    const sourceKey = `${String(source?.entityType)}:${String(source?.entityId)}`;
+    const targetKey = `${String(target?.entityType)}:${String(target?.entityId)}`;
+    const sourceRecord = current.get(sourceKey);
+    const targetRecord = current.get(targetKey);
+    if (!sourceRecord || sourceRecord.payload?.archived === true)
+      throw new Error(`Mind relationship source ${sourceKey} is missing or archived.`);
+    if (!targetRecord || targetRecord.payload?.archived === true)
+      throw new Error(`Mind relationship target ${targetKey} is missing or archived.`);
+    if (sourceKey === targetKey)
+      throw new Error('A mind relationship must connect two different records.');
+    if (source?.entityType !== 'mindNode' && target?.entityType !== 'mindNode')
+      throw new Error('At least one side of a mind relationship must be a mind node.');
+    if (
+      change.payload?.relationshipType === 'custom' &&
+      !String(change.payload.customRelationship ?? '').trim()
+    )
+      throw new Error('A custom mind relationship needs a label.');
+  }
   return changes;
 }
 
@@ -684,7 +858,7 @@ export class ForgeDriveBridge {
       mkdirSync(join(this.options.driveDirectory, folder), { recursive: true });
     atomicWrite(
       join(this.options.driveDirectory, 'CHATGPT-FORGE-INSTRUCTIONS.md'),
-      `# Forge archive instructions\n\nRead **Forge Archive.json** before changing Forge. When Josiah clearly says to add or log something in Forge, that statement authorizes one non-destructive create request: correct obvious spelling and capitalization, check the archive for duplicates, infer only conservative defaults, and immediately create one file named \`forge-request-<unique-id>.json\` in **Inbox** using **Forge Inbox Example.json** as the schema. Do not ask for a second confirmation unless the intended record type or identity is genuinely ambiguous. Preserve uncertainty in notes instead of inventing experience, quantities, condition, or proficiency. A todo requires a genuine purpose explaining why it matters; if Josiah has not provided one, ask rather than inventing it. When the user provides steps for a todo or routine, save them in the ordered checklist instead of creating unrelated records. Document evidence must cite an existing skill, resource, capability, or activity by its archived stable ID and record only what the named source supports. Ask before changing an existing record or archiving anything. Never edit archive files and never request deletion; archive records instead. Each request needs a new unique requestId. After writing a request, report the normalized name and fields submitted.\n`,
+      `# Forge archive instructions\n\nRead **Forge Archive.json** before changing Forge. When Josiah clearly says to add or log something in Forge, that statement authorizes one non-destructive create request: correct obvious spelling and capitalization, check the archive for duplicates, infer only conservative defaults, and immediately create one file named \`forge-request-<unique-id>.json\` in **Inbox** using **Forge Inbox Example.json** or **Forge Mind Inbox Example.json** as the schema. Do not ask for a second confirmation unless the intended record type or identity is genuinely ambiguous. Preserve uncertainty in notes instead of inventing experience, quantities, condition, or proficiency. A todo requires a genuine purpose explaining why it matters; if Josiah has not provided one, ask rather than inventing it. When the user provides steps for a todo or routine, save them in the ordered checklist instead of creating unrelated records. Document evidence must cite an existing skill, resource, capability, activity, or mind node by its archived stable ID and record only what the named source supports. Mind nodes and relationships may be created only from Josiah's stated ideas or source material; never invent his identity, values, beliefs, confidence, or knowledge. Link existing Forge records through mind relationships instead of duplicating them as nodes. Ask before changing an existing record or archiving anything. Never edit archive files and never request deletion; archive records instead. Each request needs a new unique requestId. After writing a request, report the normalized name and fields submitted.\n`,
     );
     atomicWrite(
       join(this.options.driveDirectory, 'Forge Inbox Example.json'),
@@ -703,6 +877,45 @@ export class ForgeDriveBridge {
                 category: 'General',
                 knowledgeLevel: 0,
                 practicalLevel: 0,
+              },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+    atomicWrite(
+      join(this.options.driveDirectory, 'Forge Mind Inbox Example.json'),
+      JSON.stringify(
+        {
+          forgeInboxVersion: DRIVE_INBOX_VERSION,
+          requestId: 'replace-with-a-new-unique-id',
+          createdAt: new Date().toISOString(),
+          summary: 'Add one stated concept and link it to an existing Forge record',
+          operations: [
+            {
+              operation: 'save',
+              entityType: 'mindNode',
+              record: {
+                id: 'choose-a-stable-node-id',
+                title: 'Example concept',
+                type: 'concept',
+                description: 'Only record what the user actually stated.',
+                notes: 'Preserve uncertainty and nuance here.',
+                status: 'developing',
+                confidence: 50,
+                importance: 50,
+              },
+            },
+            {
+              operation: 'save',
+              entityType: 'mindEdge',
+              record: {
+                source: { entityType: 'mindNode', entityId: 'choose-a-stable-node-id' },
+                target: { entityType: 'skill', entityId: 'use-an-id-from-forge-archive' },
+                relationshipType: 'related to',
+                notes: 'Explain the stated connection.',
               },
             },
           ],

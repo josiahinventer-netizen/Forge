@@ -25,6 +25,8 @@ describe('ForgeDatabase', () => {
       'attachments',
       'capabilities',
       'documentEvidence',
+      'mindEdges',
+      'mindNodes',
       'reminderEvents',
       'resources',
       'skills',
@@ -236,6 +238,8 @@ describe('ForgeDatabase', () => {
       'attachments',
       'capabilities',
       'documentEvidence',
+      'mindEdges',
+      'mindNodes',
       'reminderEvents',
       'resources',
       'skills',
@@ -311,5 +315,95 @@ describe('ForgeDatabase', () => {
     expect(migrated.documentEvidence.schema.indexes.map((index) => index.name)).toContain(
       'ownerId',
     );
+  });
+
+  it('persists, edits, connects, searches, and archives mind graph records', async () => {
+    const database = makeDatabase();
+    await database.mindNodes.bulkPut([
+      {
+        id: 'engineering',
+        title: 'Mechanical engineering',
+        type: 'knowledge',
+        description: 'A field of engineering.',
+        notes: '',
+        status: 'developing',
+        confidence: 70,
+        importance: 90,
+        familiarityLevel: 3,
+        practicalLevel: 2,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+        tags: ['engineering'],
+        archived: false,
+      },
+      {
+        id: 'machine-design',
+        title: 'Machine design',
+        type: 'concept',
+        description: '',
+        notes: '',
+        status: 'developing',
+        confidence: 60,
+        importance: 80,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+        tags: [],
+        archived: false,
+      },
+    ]);
+    await database.mindEdges.put({
+      id: 'engineering-machine-design',
+      source: { entityType: 'mindNode', entityId: 'machine-design' },
+      target: { entityType: 'mindNode', entityId: 'engineering' },
+      relationshipType: 'part of',
+      notes: '',
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    });
+    await database.mindNodes.update('machine-design', { confidence: 75 });
+    await database.mindEdges.update('engineering-machine-design', {
+      archived: true,
+      updatedAt: '2026-08-02T00:00:00.000Z',
+    });
+    await database.mindNodes.update('engineering', {
+      archived: true,
+      updatedAt: '2026-08-02T00:00:00.000Z',
+    });
+
+    expect(
+      await database.mindNodes.filter((node) => node.title.includes('engineering')).count(),
+    ).toBe(1);
+    expect((await database.mindNodes.get('machine-design'))?.confidence).toBe(75);
+    expect((await database.mindEdges.get('engineering-machine-design'))?.archived).toBe(true);
+    expect((await database.mindNodes.get('engineering'))?.archived).toBe(true);
+  });
+
+  it('adds schema 14 graph tables without changing schema 13 records', async () => {
+    const name = `forge-mind-migration-${crypto.randomUUID()}`;
+    const legacy = new Dexie(name);
+    legacy.version(13).stores({
+      skills: 'id, name, category, archived, updatedAt, *tags',
+      documentEvidence:
+        'id, ownerType, ownerId, sourceType, verificationStatus, issuedAt, archived, updatedAt, *tags',
+    });
+    await legacy.table('skills').put({
+      id: 'troubleshooting',
+      name: 'Troubleshooting',
+      category: 'General',
+      archived: false,
+      updatedAt: '2026-08-01T00:00:00.000Z',
+      tags: [],
+    });
+    legacy.close();
+
+    const migrated = new ForgeDatabase(name);
+    databases.push(migrated);
+    await migrated.open();
+
+    expect((await migrated.skills.get('troubleshooting'))?.name).toBe('Troubleshooting');
+    expect(await migrated.mindNodes.count()).toBe(0);
+    expect(await migrated.mindEdges.count()).toBe(0);
   });
 });

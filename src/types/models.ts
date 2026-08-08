@@ -47,7 +47,7 @@ export interface Resource extends BaseRecord {
   photoDataUrls?: string[];
 }
 
-export type EvidenceOwnerType = 'resource' | 'skill' | 'capability' | 'activity';
+export type EvidenceOwnerType = 'resource' | 'skill' | 'capability' | 'activity' | 'mindNode';
 export type EvidenceKind =
   'Item photo' | 'Serial label' | 'Receipt' | 'Condition' | 'Project result' | 'Other';
 
@@ -87,6 +87,70 @@ export interface DocumentEvidence extends BaseRecord {
   excerpt: string;
   notes: string;
   verificationStatus: VerificationStatus;
+}
+
+export type MindNodeType =
+  | 'identity'
+  | 'value'
+  | 'belief'
+  | 'principle'
+  | 'goal'
+  | 'interest'
+  | 'knowledge'
+  | 'concept'
+  | 'project'
+  | 'person'
+  | 'experience'
+  | 'habit'
+  | 'question'
+  | 'custom';
+export type MindNodeStatus = 'active' | 'developing' | 'established' | 'paused';
+
+export interface MindNode extends BaseRecord {
+  title: string;
+  type: MindNodeType;
+  customType?: string;
+  description: string;
+  notes: string;
+  status: MindNodeStatus;
+  confidence: number;
+  importance: number;
+  familiarityLevel?: Level;
+  practicalLevel?: Level;
+  lastReviewedAt?: string;
+}
+
+export type GraphEntityType =
+  'mindNode' | 'skill' | 'resource' | 'capability' | 'todo' | 'activity';
+
+export interface EntityReference {
+  entityType: GraphEntityType;
+  entityId: string;
+}
+
+export type MindRelationshipType =
+  | 'parent of'
+  | 'part of'
+  | 'depends on'
+  | 'prerequisite for'
+  | 'related to'
+  | 'supports'
+  | 'conflicts with'
+  | 'derived from'
+  | 'used by'
+  | 'learned from'
+  | 'contributes to'
+  | 'motivated by'
+  | 'requires'
+  | 'applies to'
+  | 'custom';
+
+export interface MindEdge extends BaseRecord {
+  source: EntityReference;
+  target: EntityReference;
+  relationshipType: MindRelationshipType;
+  customRelationship?: string;
+  notes: string;
 }
 
 export type TodoStatus = 'Open' | 'In progress' | 'Completed';
@@ -206,6 +270,48 @@ export const DOCUMENT_EVIDENCE_SOURCE_TYPES: readonly DocumentEvidenceSourceType
   'Other',
 ];
 
+export const MIND_NODE_TYPES: readonly MindNodeType[] = [
+  'identity',
+  'value',
+  'belief',
+  'principle',
+  'goal',
+  'interest',
+  'knowledge',
+  'concept',
+  'project',
+  'person',
+  'experience',
+  'habit',
+  'question',
+  'custom',
+];
+
+export const MIND_NODE_STATUSES: readonly MindNodeStatus[] = [
+  'active',
+  'developing',
+  'established',
+  'paused',
+];
+
+export const MIND_RELATIONSHIP_TYPES: readonly MindRelationshipType[] = [
+  'parent of',
+  'part of',
+  'depends on',
+  'prerequisite for',
+  'related to',
+  'supports',
+  'conflicts with',
+  'derived from',
+  'used by',
+  'learned from',
+  'contributes to',
+  'motivated by',
+  'requires',
+  'applies to',
+  'custom',
+];
+
 export type ResourceClass =
   'Durable asset' | 'Consumable' | 'Software' | 'Service' | 'Workspace' | 'Document';
 export type VerificationStatus =
@@ -270,6 +376,8 @@ export interface ExportBundle {
     capabilities: Capability[];
     attachments?: EvidenceAttachment[];
     documentEvidence?: DocumentEvidence[];
+    mindNodes?: MindNode[];
+    mindEdges?: MindEdge[];
     todos?: Todo[];
     activities?: Activity[];
     todoOccurrences?: TodoOccurrence[];

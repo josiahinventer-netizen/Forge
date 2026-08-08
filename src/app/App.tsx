@@ -8,6 +8,7 @@ import { SettingsPage } from '../pages/SettingsPage';
 import { SkillsPage } from '../pages/SkillsPage';
 import { TodosPage } from '../pages/TodosPage';
 import { ActivitiesPage } from '../pages/ActivitiesPage';
+import { MindPage } from '../pages/MindPage';
 import { db } from '../database/db';
 import { startAutomaticSync } from '../services/sync';
 
@@ -25,6 +26,7 @@ export function App() {
       <Routes>
         <Route element={<Shell />}>
           <Route index element={<DashboardPage />} />
+          <Route path="mind" element={<MindPage />} />
           <Route path="skills" element={<SkillsPage />} />
           <Route path="resources" element={<ResourcesPage />} />
           <Route path="capabilities" element={<CapabilitiesPage />} />

@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { TodoReminder } from './TodoReminder';
 
 const links: Array<[string, string, string]> = [
+  ['/mind', 'M', 'Mind'],
   ['/', '▦', 'Dashboard'],
   ['/skills', '⌁', 'Skills'],
   ['/resources', '▣', 'Resources'],
