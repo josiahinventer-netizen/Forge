@@ -6,6 +6,7 @@ import type {
   CapabilitySkillRequirement,
   ExportBundle,
   EvidenceAttachment,
+  DocumentEvidence,
   Resource,
   Skill,
   Todo,
@@ -118,6 +119,38 @@ export function isAttachment(value: unknown): value is EvidenceAttachment {
       String(value.verificationStatus),
     ) &&
     typeof value.notes === 'string'
+  );
+}
+
+export function isDocumentEvidence(value: unknown): value is DocumentEvidence {
+  if (!isRecord(value) || !hasBaseRecord(value)) return false;
+  return (
+    ['resource', 'skill', 'capability', 'activity'].includes(String(value.ownerType)) &&
+    typeof value.ownerId === 'string' &&
+    value.ownerId.length > 0 &&
+    typeof value.title === 'string' &&
+    value.title.length > 0 &&
+    [
+      'Resume',
+      'Course or transcript',
+      'Certificate or license',
+      'Manual or specification',
+      'Receipt or invoice',
+      'Web reference',
+      'Personal note',
+      'Other',
+    ].includes(String(value.sourceType)) &&
+    typeof value.sourceName === 'string' &&
+    value.sourceName.length > 0 &&
+    (value.sourceUrl === undefined ||
+      (typeof value.sourceUrl === 'string' && /^https?:\/\//.test(value.sourceUrl))) &&
+    (value.issuedAt === undefined || isDate(value.issuedAt)) &&
+    typeof value.excerpt === 'string' &&
+    value.excerpt.length > 0 &&
+    typeof value.notes === 'string' &&
+    ['Confirmed', 'Document-supported', 'Activity-supported', 'Inferred', 'Needs review'].includes(
+      String(value.verificationStatus),
+    )
   );
 }
 
@@ -306,6 +339,7 @@ export function validateImport(value: unknown): ImportValidationResult {
   const resources = value.records.resources;
   const capabilities = value.records.capabilities;
   const attachments = value.records.attachments ?? [];
+  const documentEvidence = value.records.documentEvidence ?? [];
   const todos = value.records.todos ?? [];
   const activities = value.records.activities ?? [];
   const todoOccurrences = value.records.todoOccurrences ?? [];
@@ -317,6 +351,8 @@ export function validateImport(value: unknown): ImportValidationResult {
     errors.push('Capabilities contain invalid data.');
   if (!Array.isArray(attachments) || !attachments.every(isAttachment))
     errors.push('Attachments contain invalid data.');
+  if (!Array.isArray(documentEvidence) || !documentEvidence.every(isDocumentEvidence))
+    errors.push('Document evidence contains invalid data.');
   if (!Array.isArray(todos) || !todos.every(isTodo)) errors.push('Todos contain invalid data.');
   if (!Array.isArray(activities) || !activities.every(isActivity))
     errors.push('Activities contain invalid data.');
@@ -333,6 +369,8 @@ export function validateImport(value: unknown): ImportValidationResult {
     errors.push('Capabilities contain duplicate IDs.');
   if (!hasUniqueIds(bundle.records.attachments ?? []))
     errors.push('Attachments contain duplicate IDs.');
+  if (!hasUniqueIds(bundle.records.documentEvidence ?? []))
+    errors.push('Document evidence contains duplicate IDs.');
   if (!hasUniqueIds(bundle.records.todos ?? [])) errors.push('Todos contain duplicate IDs.');
   if (!hasUniqueIds(bundle.records.activities ?? []))
     errors.push('Activities contain duplicate IDs.');
@@ -366,6 +404,7 @@ export async function importData(
       database.resources,
       database.capabilities,
       database.attachments,
+      database.documentEvidence,
       database.todos,
       database.activities,
       database.todoOccurrences,
@@ -378,6 +417,7 @@ export async function importData(
           database.resources.clear(),
           database.capabilities.clear(),
           database.attachments.clear(),
+          database.documentEvidence.clear(),
           database.todos.clear(),
           database.activities.clear(),
           database.todoOccurrences.clear(),
@@ -387,6 +427,7 @@ export async function importData(
         await database.resources.bulkPut(bundle.records.resources);
         await database.capabilities.bulkPut(bundle.records.capabilities);
         await database.attachments.bulkPut(bundle.records.attachments ?? []);
+        await database.documentEvidence.bulkPut(bundle.records.documentEvidence ?? []);
         await database.todos.bulkPut(bundle.records.todos ?? []);
         await database.activities.bulkPut(bundle.records.activities ?? []);
         await database.todoOccurrences.bulkPut(bundle.records.todoOccurrences ?? []);
@@ -405,6 +446,12 @@ export async function importData(
       );
       await database.attachments.bulkPut(
         newerRecords(await database.attachments.toArray(), bundle.records.attachments ?? []),
+      );
+      await database.documentEvidence.bulkPut(
+        newerRecords(
+          await database.documentEvidence.toArray(),
+          bundle.records.documentEvidence ?? [],
+        ),
       );
       await database.todos.bulkPut(
         newerRecords(await database.todos.toArray(), bundle.records.todos ?? []),
@@ -440,6 +487,7 @@ export async function createExport(database: ForgeDatabase = db): Promise<Export
       resources: await database.resources.toArray(),
       capabilities: await database.capabilities.toArray(),
       attachments: await database.attachments.toArray(),
+      documentEvidence: await database.documentEvidence.toArray(),
       todos: await database.todos.toArray(),
       activities: await database.activities.toArray(),
       todoOccurrences: await database.todoOccurrences.toArray(),

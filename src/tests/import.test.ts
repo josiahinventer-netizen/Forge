@@ -62,6 +62,34 @@ describe('import validation', () => {
     expect(validateImport(backup).valid).toBe(true);
   });
 
+  it('accepts attributed document evidence and rejects untrusted source links', () => {
+    const backup = bundle([]);
+    backup.records.documentEvidence = [
+      {
+        id: 'course-evidence',
+        ownerType: 'skill',
+        ownerId: 'mechanical-engineering',
+        title: 'Engineering coursework',
+        sourceType: 'Course or transcript',
+        sourceName: 'Oregon Tech',
+        sourceUrl: 'https://www.oit.edu/',
+        excerpt: 'Completed documented coursework.',
+        notes: '',
+        verificationStatus: 'Document-supported',
+        createdAt: '2026-08-02T00:00:00.000Z',
+        updatedAt: '2026-08-02T00:00:00.000Z',
+        tags: [],
+        archived: false,
+      },
+    ];
+    expect(validateImport(backup).valid).toBe(true);
+    backup.records.documentEvidence[0]!.sourceUrl = 'javascript:alert(1)';
+    expect(validateImport(backup)).toEqual({
+      valid: false,
+      errors: ['Document evidence contains invalid data.'],
+    });
+  });
+
   it('rejects malformed records, duplicate IDs, and future schemas', () => {
     const malformed = validateImport({
       ...bundle([]),

@@ -74,6 +74,40 @@ const resourceRequirement = z.object({
   requiredQuantity: z.number().min(0),
   unit: z.string(),
 });
+const documentEvidenceOperation = z.object({
+  operation: z.literal('save'),
+  entityType: z.literal('documentEvidence'),
+  record: z.object({
+    id: z.string().min(1).optional(),
+    ownerType: z.enum(['resource', 'skill', 'capability', 'activity']),
+    ownerId: z.string().min(1),
+    title: z.string().min(1),
+    sourceType: z.enum([
+      'Resume',
+      'Course or transcript',
+      'Certificate or license',
+      'Manual or specification',
+      'Receipt or invoice',
+      'Web reference',
+      'Personal note',
+      'Other',
+    ]),
+    sourceName: z.string().min(1),
+    sourceUrl: z.string().url().startsWith('http').optional(),
+    issuedAt: z.string().datetime().optional(),
+    excerpt: z.string().min(1),
+    notes: z.string().optional(),
+    verificationStatus: z.enum([
+      'Confirmed',
+      'Document-supported',
+      'Activity-supported',
+      'Inferred',
+      'Needs review',
+    ]),
+    tags: z.array(z.string()).optional(),
+    archived: z.boolean().optional(),
+  }),
+});
 const capabilityOperation = z.object({
   operation: z.literal('save'),
   entityType: z.literal('capability'),
@@ -176,6 +210,7 @@ export const driveInboxRequestSchema = z.object({
         capabilityOperation,
         todoOperation,
         activityOperation,
+        documentEvidenceOperation,
       ]),
     )
     .min(1)
@@ -212,6 +247,7 @@ const defaults: Record<SyncEntityType, Record<string, unknown>> = {
     photoDataUrls: [],
   },
   attachment: {},
+  documentEvidence: { notes: '' },
   todo: {
     description: '',
     purpose: '',
@@ -277,6 +313,9 @@ export function createDriveArchive(
                 : 'jpg';
           return { ...metadata, driveFile: `Evidence/${record.recordId}.${extension}` };
         }),
+      documentEvidence: live
+        .filter((record) => record.entityType === 'documentEvidence')
+        .map((record) => record.payload),
       todos: live.filter((record) => record.entityType === 'todo').map((record) => record.payload),
       activities: live
         .filter((record) => record.entityType === 'activity')
@@ -302,6 +341,7 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
   const activities = archive.records.activities;
   const todoOccurrences = archive.records.todoOccurrences;
   const reminderEvents = archive.records.reminderEvents;
+  const documentEvidence = archive.records.documentEvidence;
   return {
     'Forge Skills.csv': csv(
       [
@@ -427,6 +467,38 @@ export function archiveCsvFiles(archive: ReturnType<typeof createDriveArchive>) 
         item?.durationMinutes,
         item?.outcome,
         JSON.stringify(item?.skillPractice ?? []),
+        item?.archived,
+        item?.updatedAt,
+      ]),
+    ),
+    'Forge Document Evidence.csv': csv(
+      [
+        'id',
+        'ownerType',
+        'ownerId',
+        'title',
+        'sourceType',
+        'sourceName',
+        'sourceUrl',
+        'issuedAt',
+        'excerpt',
+        'notes',
+        'verificationStatus',
+        'archived',
+        'updatedAt',
+      ],
+      documentEvidence.map((item) => [
+        item?.id,
+        item?.ownerType,
+        item?.ownerId,
+        item?.title,
+        item?.sourceType,
+        item?.sourceName,
+        item?.sourceUrl,
+        item?.issuedAt,
+        item?.excerpt,
+        item?.notes,
+        item?.verificationStatus,
         item?.archived,
         item?.updatedAt,
       ]),
@@ -582,6 +654,13 @@ function buildChanges(
       }
     }
   }
+  for (const change of changes.filter((item) => item.entityType === 'documentEvidence')) {
+    const ownerType = String(change.payload?.ownerType);
+    const ownerId = String(change.payload?.ownerId);
+    const owner = current.get(`${ownerType}:${ownerId}`);
+    if (!owner || owner.payload?.archived === true)
+      throw new Error(`Document evidence owner ${ownerType} ${ownerId} is missing or archived.`);
+  }
   return changes;
 }
 
@@ -605,7 +684,7 @@ export class ForgeDriveBridge {
       mkdirSync(join(this.options.driveDirectory, folder), { recursive: true });
     atomicWrite(
       join(this.options.driveDirectory, 'CHATGPT-FORGE-INSTRUCTIONS.md'),
-      `# Forge archive instructions\n\nRead **Forge Archive.json** before changing Forge. When Josiah clearly says to add or log something in Forge, that statement authorizes one non-destructive create request: correct obvious spelling and capitalization, check the archive for duplicates, infer only conservative defaults, and immediately create one file named \`forge-request-<unique-id>.json\` in **Inbox** using **Forge Inbox Example.json** as the schema. Do not ask for a second confirmation unless the intended record type or identity is genuinely ambiguous. Preserve uncertainty in notes instead of inventing experience, quantities, condition, or proficiency. A todo requires a genuine purpose explaining why it matters; if Josiah has not provided one, ask rather than inventing it. When the user provides steps for a todo or routine, save them in the ordered checklist instead of creating unrelated records. Ask before changing an existing record or archiving anything. Never edit archive files and never request deletion; archive records instead. Each request needs a new unique requestId. After writing a request, report the normalized name and fields submitted.\n`,
+      `# Forge archive instructions\n\nRead **Forge Archive.json** before changing Forge. When Josiah clearly says to add or log something in Forge, that statement authorizes one non-destructive create request: correct obvious spelling and capitalization, check the archive for duplicates, infer only conservative defaults, and immediately create one file named \`forge-request-<unique-id>.json\` in **Inbox** using **Forge Inbox Example.json** as the schema. Do not ask for a second confirmation unless the intended record type or identity is genuinely ambiguous. Preserve uncertainty in notes instead of inventing experience, quantities, condition, or proficiency. A todo requires a genuine purpose explaining why it matters; if Josiah has not provided one, ask rather than inventing it. When the user provides steps for a todo or routine, save them in the ordered checklist instead of creating unrelated records. Document evidence must cite an existing skill, resource, capability, or activity by its archived stable ID and record only what the named source supports. Ask before changing an existing record or archiving anything. Never edit archive files and never request deletion; archive records instead. Each request needs a new unique requestId. After writing a request, report the normalized name and fields submitted.\n`,
     );
     atomicWrite(
       join(this.options.driveDirectory, 'Forge Inbox Example.json'),

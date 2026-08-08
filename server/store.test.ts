@@ -348,6 +348,15 @@ describe('incremental account-isolated synchronization', () => {
     ).toBe(true);
     expect(
       validateSyncChange({
+        entityType: 'documentEvidence',
+        recordId: 'course-record',
+        updatedAt: '2026-08-02T12:00:00.000Z',
+        deleted: false,
+        payload: { id: 'course-record', ownerType: 'skill', ownerId: 'mechanical-engineering' },
+      }),
+    ).toBe(true);
+    expect(
+      validateSyncChange({
         entityType: 'unknown',
         recordId: '',
         updatedAt: 'later',

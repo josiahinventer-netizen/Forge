@@ -3,6 +3,7 @@ export const SYNC_ENTITY_TYPES = [
   'resource',
   'capability',
   'attachment',
+  'documentEvidence',
   'todo',
   'activity',
   'todoOccurrence',

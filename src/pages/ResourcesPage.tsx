@@ -5,6 +5,7 @@ import type { Resource } from '../types/models';
 import { RESOURCE_CLASSES, RESOURCE_TYPES, VERIFICATION_STATUSES } from '../types/models';
 import { Card, Empty, Field, Modal, Page } from '../components/UI';
 import { EvidenceAttachments } from '../components/EvidenceAttachments';
+import { DocumentEvidence } from '../components/DocumentEvidence';
 const empty = (): Resource => ({
   ...baseRecord(),
   name: '',
@@ -268,6 +269,11 @@ export function ResourcesPage() {
               ownerType="resource"
               ownerId={edit.id}
               ownerName={edit.name || 'resource'}
+              saved={items.some((resource) => resource.id === edit.id)}
+            />
+            <DocumentEvidence
+              ownerType="resource"
+              ownerId={edit.id}
               saved={items.some((resource) => resource.id === edit.id)}
             />
             <Field label="Location">

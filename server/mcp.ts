@@ -74,12 +74,12 @@ mcp.registerTool(
   'forge_search',
   {
     description:
-      'Search skills, resources, and capabilities in Forge by name, description, category, or tags. Returns current source records, not inferred claims.',
+      'Search skills, resources, capabilities, todos, and attributed document evidence in Forge. Returns current source records, not inferred claims.',
     inputSchema: {
       query: z.string().default(''),
       entityTypes: z
-        .array(z.enum(['skill', 'resource', 'capability', 'todo']))
-        .default(['skill', 'resource', 'capability', 'todo']),
+        .array(z.enum(['skill', 'resource', 'capability', 'todo', 'documentEvidence']))
+        .default(['skill', 'resource', 'capability', 'todo', 'documentEvidence']),
       includeArchived: z.boolean().default(false),
     },
     annotations: { readOnlyHint: true, openWorldHint: false },
@@ -106,7 +106,7 @@ mcp.registerTool(
   {
     description: 'Get one exact Forge source record by its stable ID and entity type.',
     inputSchema: {
-      entityType: z.enum(['skill', 'resource', 'capability']),
+      entityType: z.enum(['skill', 'resource', 'capability', 'documentEvidence']),
       recordId: z.string().min(1),
     },
     annotations: { readOnlyHint: true, openWorldHint: false },

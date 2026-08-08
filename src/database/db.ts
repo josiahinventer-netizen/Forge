@@ -3,6 +3,7 @@ import type {
   Capability,
   Activity,
   EvidenceAttachment,
+  DocumentEvidence,
   Resource,
   Skill,
   SyncSettings,
@@ -11,7 +12,7 @@ import type {
   ReminderEvent,
 } from '../types/models';
 
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 export class ForgeDatabase extends Dexie {
   skills!: EntityTable<Skill, 'id'>;
@@ -19,6 +20,7 @@ export class ForgeDatabase extends Dexie {
   capabilities!: EntityTable<Capability, 'id'>;
   syncSettings!: EntityTable<SyncSettings, 'id'>;
   attachments!: EntityTable<EvidenceAttachment, 'id'>;
+  documentEvidence!: EntityTable<DocumentEvidence, 'id'>;
   todos!: EntityTable<Todo, 'id'>;
   activities!: EntityTable<Activity, 'id'>;
   todoOccurrences!: EntityTable<TodoOccurrence, 'id'>;
@@ -213,6 +215,23 @@ export class ForgeDatabase extends Dexie {
             occurrence.checklist ??= [];
           });
       });
+
+    // V13 adds attributed non-image evidence linked to existing records by stable IDs.
+    this.version(13).stores({
+      skills: 'id, name, category, archived, updatedAt, *tags',
+      resources:
+        'id, name, category, resourceType, resourceClass, verificationStatus, archived, updatedAt, *tags',
+      capabilities: 'id, name, category, archived, updatedAt, *tags',
+      attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+      documentEvidence:
+        'id, ownerType, ownerId, sourceType, verificationStatus, issuedAt, archived, updatedAt, *tags',
+      todos: 'id, title, status, priority, scheduledFor, dueAt, archived, updatedAt, *tags',
+      todoOccurrences: 'id, todoId, completedAt, archived, updatedAt, *tags',
+      reminderEvents:
+        'id, todoId, occurrenceKey, detectedAt, acknowledgedAt, action, archived, updatedAt',
+      activities: 'id, title, occurredAt, archived, updatedAt, *tags',
+      syncSettings: 'id',
+    });
   }
 }
 

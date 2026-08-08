@@ -10,6 +10,7 @@ import {
 } from '../types/models';
 import { Card, Empty, Field, Modal, Page, formatDate } from '../components/UI';
 import { EvidenceAttachments } from '../components/EvidenceAttachments';
+import { DocumentEvidence } from '../components/DocumentEvidence';
 import { SpeechInput } from '../components/SpeechInput';
 
 const emptyActivity = (): Activity => ({
@@ -325,6 +326,11 @@ export function ActivitiesPage() {
               ownerType="activity"
               ownerId={edit.id}
               ownerName={edit.title || 'activity'}
+              saved={activities.some((item) => item.id === edit.id)}
+            />
+            <DocumentEvidence
+              ownerType="activity"
+              ownerId={edit.id}
               saved={activities.some((item) => item.id === edit.id)}
             />
             <div className="actions">

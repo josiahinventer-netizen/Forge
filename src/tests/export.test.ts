@@ -75,6 +75,21 @@ describe('JSON export', () => {
       tags: [],
       archived: false,
     });
+    await database.documentEvidence.put({
+      id: 'document-evidence',
+      ownerType: 'skill',
+      ownerId: 'active',
+      title: 'Resume project entry',
+      sourceType: 'Resume',
+      sourceName: 'Josiah resume',
+      excerpt: 'Designed and built a documented project.',
+      notes: '',
+      verificationStatus: 'Document-supported',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+      tags: [],
+      archived: false,
+    });
     await database.todos.put({
       id: 'todo',
       title: 'Build practice joint',
@@ -164,6 +179,7 @@ describe('JSON export', () => {
     expect(parsed.records.capabilities).toHaveLength(1);
     expect(parsed.records.capabilities[0]?.requiredSkills[0]?.skillId).toBe('active');
     expect(parsed.records.attachments?.[0]?.ownerId).toBe('active');
+    expect(parsed.records.documentEvidence?.[0]?.sourceName).toBe('Josiah resume');
     expect(parsed.records.todos?.[0]?.purpose).toBe('Practice carpentry');
     expect(parsed.records.todos?.[0]?.checklist?.[0]?.text).toBe('Measure boards');
     expect(parsed.records.activities?.[0]?.skillPractice[0]?.skillId).toBe('active');

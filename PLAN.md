@@ -49,7 +49,7 @@
 - [x] Pure skill-evidence summaries that do not silently award levels
 - [x] Dashboard activity count and closest-capability explanations
 - [x] Dexie schema 8 migration, device sync, JSON export, and Drive archive/CSV
-- [ ] Evidence history with multiple attributed document sources
+- [x] Evidence history with multiple attributed document sources linked to skills and activities
 - [x] Explainable seven-day summaries and guided manual level-review suggestions
 
 ## Later stages (not started)
@@ -72,7 +72,7 @@
 - [x] Google Drive evidence-file mirroring for ChatGPT access
 - [x] Reusable typed photo evidence with source notes and verification status for resources, skills, and activities
 - [x] Per-record hash deduplication, galleries, and confirmed evidence archiving
-- [ ] Non-image evidence history with multiple attributed document sources
+- [x] Non-image evidence history with multiple attributed document sources for resources, skills, and activities
 - [x] Explainable capability-work connections based only on explicitly linked activities
 
 ## Stage 6 — Purpose-aware todos (foundation complete)

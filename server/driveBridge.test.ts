@@ -3,7 +3,12 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ForgeDriveBridge, createDriveArchive, driveInboxRequestSchema } from './driveBridge.js';
+import {
+  archiveCsvFiles,
+  ForgeDriveBridge,
+  createDriveArchive,
+  driveInboxRequestSchema,
+} from './driveBridge.js';
 import { ForgeSyncStore } from './store.js';
 
 const directories: string[] = [];
@@ -67,6 +72,22 @@ describe('Drive archive', () => {
             action: 'Acknowledged',
           },
         },
+        {
+          entityType: 'documentEvidence',
+          recordId: 'course-record',
+          updatedAt: '2026-08-02T02:50:00.000Z',
+          deleted: false,
+          payload: {
+            id: 'course-record',
+            ownerType: 'skill',
+            ownerId: 'skill-1',
+            title: 'Course record',
+            sourceType: 'Course or transcript',
+            sourceName: 'Oregon Tech',
+            excerpt: 'Completed relevant coursework.',
+            verificationStatus: 'Document-supported',
+          },
+        },
       ],
       '2026-08-02T03:00:00.000Z',
     );
@@ -76,6 +97,8 @@ describe('Drive archive', () => {
     expect(archive.records.attachments[0]?.driveFile).toBe('Evidence/activity-photo.jpg');
     expect('dataUrl' in (archive.records.attachments[0] ?? {})).toBe(false);
     expect(archive.records.reminderEvents[0]?.action).toBe('Acknowledged');
+    expect(archive.records.documentEvidence[0]?.sourceName).toBe('Oregon Tech');
+    expect(archiveCsvFiles(archive)['Forge Document Evidence.csv']).toContain('Oregon Tech');
     expect(archive.deletedRecords).toEqual([
       { entityType: 'resource', recordId: 'old', updatedAt: '2026-08-02T02:00:00.000Z' },
     ]);
@@ -151,6 +174,20 @@ describe('Drive inbox', () => {
             ],
           },
         },
+        {
+          operation: 'save',
+          entityType: 'documentEvidence',
+          record: {
+            id: 'evidence-welding-course',
+            ownerType: 'skill',
+            ownerId: 'skill-welding',
+            title: 'Welding safety course',
+            sourceType: 'Course or transcript',
+            sourceName: 'Training record',
+            excerpt: 'Completed introductory welding safety instruction.',
+            verificationStatus: 'Document-supported',
+          },
+        },
       ],
     };
     writeFileSync(join(directory, 'Inbox', 'forge-request-welding.json'), JSON.stringify(request));
@@ -178,6 +215,10 @@ describe('Drive inbox', () => {
     expect(store.archiveRecord(account.id, 'activity', 'activity-welding')?.payload?.title).toBe(
       'Study welding safety',
     );
+    expect(
+      store.archiveRecord(account.id, 'documentEvidence', 'evidence-welding-course')?.payload
+        ?.sourceName,
+    ).toBe('Training record');
 
     writeFileSync(
       join(directory, 'Inbox', 'forge-request-duplicate.json'),

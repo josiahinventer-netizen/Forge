@@ -11,6 +11,7 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Resource creation, editing, viewing, search, quantity/location tracking, and archiving
 - Resource intelligence for durable assets and consumables, including manufacturer, model, serial number, lifecycle, maintenance, value, verification status, and evidence notes
 - Phone camera/file evidence for resources, skills, and activities, resized before storage, deduplicated per record by SHA-256, synchronized as bounded attachment records, and mirrored into Google Drive for ChatGPT
+- Attributed non-image evidence for resources, skills, and activities, including resumes, coursework, certificates, manuals, receipts, web references, excerpts, uncertainty notes, and verification status
 - Purpose-aware todos with priorities, scheduling, due times, duration estimates, reminder lead times, linked Forge records, completion notes, and in-app overdue/reminder banners
 - Daily, weekly, and monthly recurring todos that advance after completion while preserving occurrence history
 - Opt-in system notifications and browser speech dictation for fast todo capture
@@ -185,6 +186,12 @@ All records are stored locally using Dexie and IndexedDB. Use **Data → Export 
 - Reminder detections and acknowledge, snooze, or completion actions
 
 When a device is connected under **Data â†’ Computer synchronization**, Forge observes local record changes and synchronizes them automatically after a short debounce. The computer maintains an authenticated waiting connection that wakes other open Forge devices when changes arrive. Forge also synchronizes at startup, when connectivity returns, and every 30 seconds as a fallback. If the browser suspends or closes the PWA, queued record state converges automatically on its next launch. Passwords are not saved on the device. Exported and imported files are never sent automatically.
+
+## Attributed document evidence
+
+Open an existing skill, resource, or activity and use **Document evidence** to record what a resume, transcript or course, certificate, manual, receipt, website, or personal note actually supports. Each entry retains its source or issuer, optional HTTP(S) link and date, relevant excerpt, interpretation limits, and verification status. These entries do not automatically increase skill levels or claim that a document proves hands-on ability. Archive confirmation preserves old evidence in synchronization and JSON history.
+
+Document evidence is stored as a separate stable-ID record in IndexedDB schema 13, synchronized independently, included in JSON transfer, and mirrored into `Forge Archive.json` and `Excel/Forge Document Evidence.csv`. Forge records citations and excerpts rather than copying source documents, so the user remains responsible for retaining the original resume, transcript, receipt, or certificate.
 
 Forge normally resolves the same record using its newest `updatedAt` value. If an older or
 same-time-but-different version reaches the computer, the active record remains unchanged and the

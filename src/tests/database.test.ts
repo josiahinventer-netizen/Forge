@@ -24,6 +24,7 @@ describe('ForgeDatabase', () => {
       'activities',
       'attachments',
       'capabilities',
+      'documentEvidence',
       'reminderEvents',
       'resources',
       'skills',
@@ -117,6 +118,24 @@ describe('ForgeDatabase', () => {
       archived: false,
     });
     expect((await database.attachments.get('activity-photo'))?.ownerType).toBe('activity');
+    await database.documentEvidence.put({
+      id: 'course-evidence',
+      ownerType: 'skill',
+      ownerId: skill.id,
+      title: 'Machine Design course',
+      sourceType: 'Course or transcript',
+      sourceName: 'Oregon Tech',
+      excerpt: 'Completed machine design coursework.',
+      notes: 'Supports knowledge, not independent practical proficiency.',
+      verificationStatus: 'Document-supported',
+      createdAt: '2026-01-03T00:00:00.000Z',
+      updatedAt: '2026-01-03T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    });
+    expect(
+      (await database.documentEvidence.where('ownerId').equals(skill.id).first())?.sourceName,
+    ).toBe('Oregon Tech');
   });
 
   it('persists, searches, updates, and archives capability references', async () => {
@@ -216,6 +235,7 @@ describe('ForgeDatabase', () => {
       'activities',
       'attachments',
       'capabilities',
+      'documentEvidence',
       'reminderEvents',
       'resources',
       'skills',
@@ -229,6 +249,7 @@ describe('ForgeDatabase', () => {
     expect(await migrated.todos.count()).toBe(0);
     expect(await migrated.todoOccurrences.count()).toBe(0);
     expect(await migrated.reminderEvents.count()).toBe(0);
+    expect(await migrated.documentEvidence.count()).toBe(0);
   });
 
   it('migrates schema 11 todos and occurrence history to empty checklists', async () => {
@@ -262,5 +283,33 @@ describe('ForgeDatabase', () => {
     await migrated.open();
     expect((await migrated.todos.get('legacy-todo'))?.checklist).toEqual([]);
     expect((await migrated.todoOccurrences.get('legacy-occurrence'))?.checklist).toEqual([]);
+  });
+
+  it('adds schema 13 document evidence without changing existing schema 12 records', async () => {
+    const name = `forge-document-migration-${crypto.randomUUID()}`;
+    const legacy = new Dexie(name);
+    legacy.version(12).stores({
+      skills: 'id, name, category, archived, updatedAt, *tags',
+      attachments: 'id, ownerType, ownerId, kind, verificationStatus, archived, updatedAt, sha256',
+    });
+    await legacy.table('skills').put({
+      id: 'existing-skill',
+      name: 'Mechanical engineering',
+      category: 'Engineering',
+      archived: false,
+      updatedAt: '2026-08-01T00:00:00.000Z',
+      tags: [],
+    });
+    legacy.close();
+
+    const migrated = new ForgeDatabase(name);
+    databases.push(migrated);
+    await migrated.open();
+
+    expect((await migrated.skills.get('existing-skill'))?.name).toBe('Mechanical engineering');
+    expect(await migrated.documentEvidence.count()).toBe(0);
+    expect(migrated.documentEvidence.schema.indexes.map((index) => index.name)).toContain(
+      'ownerId',
+    );
   });
 });

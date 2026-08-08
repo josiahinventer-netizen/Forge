@@ -4,6 +4,7 @@ import type {
   Capability,
   Activity,
   EvidenceAttachment,
+  DocumentEvidence,
   Resource,
   Skill,
   SyncSettings,
@@ -14,6 +15,7 @@ import type {
 import {
   isActivity,
   isAttachment,
+  isDocumentEvidence,
   isCapability,
   isResource,
   isSkill,
@@ -27,6 +29,7 @@ type EntityType =
   | 'resource'
   | 'capability'
   | 'attachment'
+  | 'documentEvidence'
   | 'todo'
   | 'activity'
   | 'todoOccurrence'
@@ -102,6 +105,7 @@ const isSyncChange = (value: unknown): value is SyncChange => {
       change.entityType === 'resource' ||
       change.entityType === 'capability' ||
       change.entityType === 'attachment' ||
+      change.entityType === 'documentEvidence' ||
       change.entityType === 'todo' ||
       change.entityType === 'activity' ||
       change.entityType === 'todoOccurrence' ||
@@ -144,6 +148,7 @@ const isEntityType = (value: unknown): value is EntityType =>
   value === 'resource' ||
   value === 'capability' ||
   value === 'attachment' ||
+  value === 'documentEvidence' ||
   value === 'todo' ||
   value === 'activity' ||
   value === 'todoOccurrence' ||
@@ -358,6 +363,7 @@ const payload = (
     | Resource
     | Capability
     | EvidenceAttachment
+    | DocumentEvidence
     | Todo
     | Activity
     | TodoOccurrence
@@ -374,13 +380,15 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
           ? await database.capabilities.get(change.recordId)
           : change.entityType === 'attachment'
             ? await database.attachments.get(change.recordId)
-            : change.entityType === 'todo'
-              ? await database.todos.get(change.recordId)
-              : change.entityType === 'activity'
-                ? await database.activities.get(change.recordId)
-                : change.entityType === 'todoOccurrence'
-                  ? await database.todoOccurrences.get(change.recordId)
-                  : await database.reminderEvents.get(change.recordId);
+            : change.entityType === 'documentEvidence'
+              ? await database.documentEvidence.get(change.recordId)
+              : change.entityType === 'todo'
+                ? await database.todos.get(change.recordId)
+                : change.entityType === 'activity'
+                  ? await database.activities.get(change.recordId)
+                  : change.entityType === 'todoOccurrence'
+                    ? await database.todoOccurrences.get(change.recordId)
+                    : await database.reminderEvents.get(change.recordId);
   if (existing && Date.parse(existing.updatedAt) > Date.parse(change.updatedAt)) return;
   if (change.deleted) {
     if (change.entityType === 'skill') await database.skills.delete(change.recordId);
@@ -388,6 +396,8 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
     else if (change.entityType === 'capability')
       await database.capabilities.delete(change.recordId);
     else if (change.entityType === 'attachment') await database.attachments.delete(change.recordId);
+    else if (change.entityType === 'documentEvidence')
+      await database.documentEvidence.delete(change.recordId);
     else if (change.entityType === 'todo') await database.todos.delete(change.recordId);
     else if (change.entityType === 'activity') await database.activities.delete(change.recordId);
     else if (change.entityType === 'todoOccurrence')
@@ -403,6 +413,8 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
     await database.capabilities.put(change.payload);
   else if (change.entityType === 'attachment' && isAttachment(change.payload))
     await database.attachments.put(change.payload);
+  else if (change.entityType === 'documentEvidence' && isDocumentEvidence(change.payload))
+    await database.documentEvidence.put(change.payload);
   else if (change.entityType === 'todo' && isTodo(change.payload))
     await database.todos.put(change.payload);
   else if (change.entityType === 'activity' && isActivity(change.payload))
@@ -434,6 +446,7 @@ async function performSync(
       resources,
       capabilities,
       attachments,
+      documentEvidence,
       todos,
       activities,
       todoOccurrences,
@@ -443,6 +456,7 @@ async function performSync(
       database.resources.toArray(),
       database.capabilities.toArray(),
       database.attachments.toArray(),
+      database.documentEvidence.toArray(),
       database.todos.toArray(),
       database.activities.toArray(),
       database.todoOccurrences.toArray(),
@@ -453,6 +467,7 @@ async function performSync(
       ...resources.map((record) => ({ entityType: 'resource' as const, record })),
       ...capabilities.map((record) => ({ entityType: 'capability' as const, record })),
       ...attachments.map((record) => ({ entityType: 'attachment' as const, record })),
+      ...documentEvidence.map((record) => ({ entityType: 'documentEvidence' as const, record })),
       ...todos.map((record) => ({ entityType: 'todo' as const, record })),
       ...activities.map((record) => ({ entityType: 'activity' as const, record })),
       ...todoOccurrences.map((record) => ({ entityType: 'todoOccurrence' as const, record })),
@@ -511,6 +526,7 @@ async function performSync(
         database.resources,
         database.capabilities,
         database.attachments,
+        database.documentEvidence,
         database.todos,
         database.activities,
         database.todoOccurrences,
@@ -575,6 +591,7 @@ export function startAutomaticSync(
       resources,
       capabilities,
       attachments,
+      documentEvidence,
       todos,
       activities,
       todoOccurrences,
@@ -584,6 +601,7 @@ export function startAutomaticSync(
       database.resources.toArray(),
       database.capabilities.toArray(),
       database.attachments.toArray(),
+      database.documentEvidence.toArray(),
       database.todos.toArray(),
       database.activities.toArray(),
       database.todoOccurrences.toArray(),
@@ -594,6 +612,7 @@ export function startAutomaticSync(
       ...resources,
       ...capabilities,
       ...attachments,
+      ...documentEvidence,
       ...todos,
       ...activities,
       ...todoOccurrences,

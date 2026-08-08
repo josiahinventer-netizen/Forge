@@ -66,6 +66,29 @@ export interface EvidenceAttachment extends BaseRecord {
   notes: string;
 }
 
+export type DocumentEvidenceSourceType =
+  | 'Resume'
+  | 'Course or transcript'
+  | 'Certificate or license'
+  | 'Manual or specification'
+  | 'Receipt or invoice'
+  | 'Web reference'
+  | 'Personal note'
+  | 'Other';
+
+export interface DocumentEvidence extends BaseRecord {
+  ownerType: EvidenceOwnerType;
+  ownerId: string;
+  title: string;
+  sourceType: DocumentEvidenceSourceType;
+  sourceName: string;
+  sourceUrl?: string;
+  issuedAt?: string;
+  excerpt: string;
+  notes: string;
+  verificationStatus: VerificationStatus;
+}
+
 export type TodoStatus = 'Open' | 'In progress' | 'Completed';
 export type TodoPriority = 'Low' | 'Normal' | 'High' | 'Urgent';
 export type RecurrenceFrequency = 'Daily' | 'Weekly' | 'Monthly';
@@ -172,6 +195,17 @@ export const EVIDENCE_KINDS: readonly EvidenceKind[] = [
   'Other',
 ];
 
+export const DOCUMENT_EVIDENCE_SOURCE_TYPES: readonly DocumentEvidenceSourceType[] = [
+  'Resume',
+  'Course or transcript',
+  'Certificate or license',
+  'Manual or specification',
+  'Receipt or invoice',
+  'Web reference',
+  'Personal note',
+  'Other',
+];
+
 export type ResourceClass =
   'Durable asset' | 'Consumable' | 'Software' | 'Service' | 'Workspace' | 'Document';
 export type VerificationStatus =
@@ -235,6 +269,7 @@ export interface ExportBundle {
     resources: Resource[];
     capabilities: Capability[];
     attachments?: EvidenceAttachment[];
+    documentEvidence?: DocumentEvidence[];
     todos?: Todo[];
     activities?: Activity[];
     todoOccurrences?: TodoOccurrence[];

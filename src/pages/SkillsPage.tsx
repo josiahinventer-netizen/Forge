@@ -6,6 +6,7 @@ import { LEVEL_LABELS } from '../types/models';
 import { Card, Empty, Field, Modal, Page } from '../components/UI';
 import { summarizeSkillEvidence } from '../services/activityEvidence';
 import { EvidenceAttachments } from '../components/EvidenceAttachments';
+import { DocumentEvidence } from '../components/DocumentEvidence';
 const empty = (): Skill => ({
   ...baseRecord(),
   name: '',
@@ -163,6 +164,11 @@ export function SkillsPage() {
               ownerType="skill"
               ownerId={edit.id}
               ownerName={edit.name || 'skill'}
+              saved={skills.some((skill) => skill.id === edit.id)}
+            />
+            <DocumentEvidence
+              ownerType="skill"
+              ownerId={edit.id}
               saved={skills.some((skill) => skill.id === edit.id)}
             />
             <div className="actions">

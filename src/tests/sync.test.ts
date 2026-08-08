@@ -201,6 +201,21 @@ describe('device synchronization', () => {
       tags: [],
       archived: false,
     };
+    const documentEvidence = {
+      id: 'document-1',
+      ownerType: 'skill' as const,
+      ownerId: local.id,
+      title: 'Course record',
+      sourceType: 'Course or transcript' as const,
+      sourceName: 'Oregon Tech',
+      excerpt: 'Completed relevant coursework.',
+      notes: '',
+      verificationStatus: 'Document-supported' as const,
+      createdAt: '2026-02-04T00:00:00.000Z',
+      updatedAt: '2026-02-04T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    };
     await database.skills.put(local);
     await database.syncSettings.put({
       id: 'primary',
@@ -258,22 +273,31 @@ describe('device synchronization', () => {
               deleted: false,
               payload: reminderEvent,
             },
+            {
+              revision: 11,
+              entityType: 'documentEvidence',
+              recordId: documentEvidence.id,
+              updatedAt: documentEvidence.updatedAt,
+              deleted: false,
+              payload: documentEvidence,
+            },
           ],
-          cursor: 10,
+          cursor: 11,
         }),
       );
 
     const result = await syncNow(database, fetcher);
 
-    expect(result).toEqual({ pushed: 1, pulled: 5 });
+    expect(result).toEqual({ pushed: 1, pulled: 6 });
     expect((await database.skills.get('carpentry'))?.practicalLevel).toBe(3);
-    expect((await database.syncSettings.get('primary'))?.cursor).toBe(10);
+    expect((await database.syncSettings.get('primary'))?.cursor).toBe(11);
     expect((await database.attachments.get('photo-1'))?.ownerId).toBe('carpentry');
     expect((await database.activities.get('activity-1'))?.skillPractice[0]?.kind).toBe(
       'Troubleshooting',
     );
     expect((await database.todoOccurrences.get('occurrence-1'))?.todoId).toBe('routine');
     expect((await database.reminderEvents.get('reminder-1'))?.purpose).toBe('Consistency');
+    expect((await database.documentEvidence.get('document-1'))?.sourceName).toBe('Oregon Tech');
     expect(fetcher.mock.calls[1]?.[0]).toBe('https://computer.local:8787/api/sync/pull?cursor=0');
     const pushedBody = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
       changes: Array<{ recordId: string }>;
