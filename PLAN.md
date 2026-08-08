@@ -67,6 +67,23 @@ Forge is evolving into a local-first personal operating system and self-improvem
 - [x] JSON import/export, device sync, Drive archive/CSV/inbox, and local MCP read integration
 - [x] Migration, CRUD, relationship-integrity, archive, transfer, Drive, and sync tests
 
+## Stage 9 — Conversational Forge foundation (Slice A complete)
+
+- [x] Compact, versioned `Forge Assistant Context.json` derived only from the authoritative archive
+- [x] Active goals, projects, todos, values, beliefs, principles, interests, habits, questions, knowledge, skills, recent activity, and important relationships in the projection
+- [x] Stable IDs, explicit projection limits, and an instruction to consult the full archive for omitted records
+- [x] Conversational workflows for direct Forge commands, guided discovery, saving confirmed conclusions, daily planning questions, learning questions, and grounded personal summaries
+- [x] Durable relationship vocabulary for skills, credentials, interests, projects, pursuits, learning, knowledge, practice, experience, responsibility, and goal support
+- [x] Drive generation and automated tests for context derivation, archived-record exclusion, instructions, and new relationship semantics
+
+### Conversational Forge later slices (not started)
+
+1. Deterministic Today / Focus planner with inspectable reasons and graph-grounded purpose
+2. Guided Build My Mind workflow for values, beliefs, principles, evidence, counterevidence, and confirmation
+3. Knowledge-gap and “what should I learn next?” analysis using explicit prerequisites and open questions
+4. Reflection workflows that save durable conclusions rather than conversation transcripts
+5. Optional assistant-oriented UI shortcuts and prompt copying without adding a cloud AI dependency
+
 ## Mind graph later slices (not started)
 
 1. Core Values and Beliefs workspace with explicit evidence, counterevidence, change history, and tensions
