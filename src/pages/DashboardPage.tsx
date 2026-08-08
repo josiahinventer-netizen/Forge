@@ -9,14 +9,17 @@ import { compareProgressPeriods } from '../services/progressReview';
 export function DashboardPage() {
   const [reviewDays, setReviewDays] = useState<7 | 30 | 90>(7);
   const counts = useLiveQuery(async () => {
-    const [skills, resources, capabilities, todos, activities, attachments] = await Promise.all([
-      db.skills.toArray(),
-      db.resources.toArray(),
-      db.capabilities.filter((capability) => !capability.archived).toArray(),
-      db.todos.filter((todo) => !todo.archived).toArray(),
-      db.activities.filter((activity) => !activity.archived).toArray(),
-      db.attachments.filter((attachment) => !attachment.archived).toArray(),
-    ]);
+    const [skills, resources, capabilities, todos, activities, attachments, mindNodes, mindEdges] =
+      await Promise.all([
+        db.skills.toArray(),
+        db.resources.toArray(),
+        db.capabilities.filter((capability) => !capability.archived).toArray(),
+        db.todos.filter((todo) => !todo.archived).toArray(),
+        db.activities.filter((activity) => !activity.archived).toArray(),
+        db.attachments.filter((attachment) => !attachment.archived).toArray(),
+        db.mindNodes.filter((node) => !node.archived).toArray(),
+        db.mindEdges.filter((edge) => !edge.archived).toArray(),
+      ]);
     const [activeSkills, archivedSkills, activeResources, archivedResources] = [
       skills.filter((skill) => !skill.archived).length,
       skills.filter((skill) => skill.archived).length,
@@ -43,6 +46,8 @@ export function DashboardPage() {
         (todo) => todo.status !== 'Completed' && todo.dueAt && Date.parse(todo.dueAt) < Date.now(),
       ).length,
       activities: activities.length,
+      mindNodes: mindNodes.length,
+      mindEdges: mindEdges.length,
       closest: rankClosestCapabilities(capabilities, skills, resources).slice(0, 3),
       reviewComparison: compareProgressPeriods(
         activities,
@@ -99,6 +104,14 @@ export function DashboardPage() {
           <b>{counts?.activities ?? '—'}</b>
           <span>Logged activities</span>
         </Card>
+        <Card>
+          <b>{counts?.mindNodes ?? '—'}</b>
+          <span>Mind nodes</span>
+        </Card>
+        <Card>
+          <b>{counts?.mindEdges ?? '—'}</b>
+          <span>Mind connections</span>
+        </Card>
       </div>
       <div className="dashboard-grid">
         <Card>
@@ -123,6 +136,9 @@ export function DashboardPage() {
             </Link>
             <Link className="button secondary" to="/activities">
               Log progress
+            </Link>
+            <Link className="button secondary" to="/mind">
+              Explore Mind
             </Link>
           </div>
         </Card>

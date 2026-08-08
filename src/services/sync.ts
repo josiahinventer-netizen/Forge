@@ -5,6 +5,8 @@ import type {
   Activity,
   EvidenceAttachment,
   DocumentEvidence,
+  MindNode,
+  MindEdge,
   Resource,
   Skill,
   SyncSettings,
@@ -16,6 +18,8 @@ import {
   isActivity,
   isAttachment,
   isDocumentEvidence,
+  isMindNode,
+  isMindEdge,
   isCapability,
   isResource,
   isSkill,
@@ -30,6 +34,8 @@ type EntityType =
   | 'capability'
   | 'attachment'
   | 'documentEvidence'
+  | 'mindNode'
+  | 'mindEdge'
   | 'todo'
   | 'activity'
   | 'todoOccurrence'
@@ -106,6 +112,8 @@ const isSyncChange = (value: unknown): value is SyncChange => {
       change.entityType === 'capability' ||
       change.entityType === 'attachment' ||
       change.entityType === 'documentEvidence' ||
+      change.entityType === 'mindNode' ||
+      change.entityType === 'mindEdge' ||
       change.entityType === 'todo' ||
       change.entityType === 'activity' ||
       change.entityType === 'todoOccurrence' ||
@@ -149,6 +157,8 @@ const isEntityType = (value: unknown): value is EntityType =>
   value === 'capability' ||
   value === 'attachment' ||
   value === 'documentEvidence' ||
+  value === 'mindNode' ||
+  value === 'mindEdge' ||
   value === 'todo' ||
   value === 'activity' ||
   value === 'todoOccurrence' ||
@@ -364,6 +374,8 @@ const payload = (
     | Capability
     | EvidenceAttachment
     | DocumentEvidence
+    | MindNode
+    | MindEdge
     | Todo
     | Activity
     | TodoOccurrence
@@ -382,13 +394,17 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
             ? await database.attachments.get(change.recordId)
             : change.entityType === 'documentEvidence'
               ? await database.documentEvidence.get(change.recordId)
-              : change.entityType === 'todo'
-                ? await database.todos.get(change.recordId)
-                : change.entityType === 'activity'
-                  ? await database.activities.get(change.recordId)
-                  : change.entityType === 'todoOccurrence'
-                    ? await database.todoOccurrences.get(change.recordId)
-                    : await database.reminderEvents.get(change.recordId);
+              : change.entityType === 'mindNode'
+                ? await database.mindNodes.get(change.recordId)
+                : change.entityType === 'mindEdge'
+                  ? await database.mindEdges.get(change.recordId)
+                  : change.entityType === 'todo'
+                    ? await database.todos.get(change.recordId)
+                    : change.entityType === 'activity'
+                      ? await database.activities.get(change.recordId)
+                      : change.entityType === 'todoOccurrence'
+                        ? await database.todoOccurrences.get(change.recordId)
+                        : await database.reminderEvents.get(change.recordId);
   if (existing && Date.parse(existing.updatedAt) > Date.parse(change.updatedAt)) return;
   if (change.deleted) {
     if (change.entityType === 'skill') await database.skills.delete(change.recordId);
@@ -398,6 +414,8 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
     else if (change.entityType === 'attachment') await database.attachments.delete(change.recordId);
     else if (change.entityType === 'documentEvidence')
       await database.documentEvidence.delete(change.recordId);
+    else if (change.entityType === 'mindNode') await database.mindNodes.delete(change.recordId);
+    else if (change.entityType === 'mindEdge') await database.mindEdges.delete(change.recordId);
     else if (change.entityType === 'todo') await database.todos.delete(change.recordId);
     else if (change.entityType === 'activity') await database.activities.delete(change.recordId);
     else if (change.entityType === 'todoOccurrence')
@@ -415,6 +433,10 @@ async function applyChange(database: ForgeDatabase, change: SyncChange) {
     await database.attachments.put(change.payload);
   else if (change.entityType === 'documentEvidence' && isDocumentEvidence(change.payload))
     await database.documentEvidence.put(change.payload);
+  else if (change.entityType === 'mindNode' && isMindNode(change.payload))
+    await database.mindNodes.put(change.payload);
+  else if (change.entityType === 'mindEdge' && isMindEdge(change.payload))
+    await database.mindEdges.put(change.payload);
   else if (change.entityType === 'todo' && isTodo(change.payload))
     await database.todos.put(change.payload);
   else if (change.entityType === 'activity' && isActivity(change.payload))
@@ -447,6 +469,8 @@ async function performSync(
       capabilities,
       attachments,
       documentEvidence,
+      mindNodes,
+      mindEdges,
       todos,
       activities,
       todoOccurrences,
@@ -457,6 +481,8 @@ async function performSync(
       database.capabilities.toArray(),
       database.attachments.toArray(),
       database.documentEvidence.toArray(),
+      database.mindNodes.toArray(),
+      database.mindEdges.toArray(),
       database.todos.toArray(),
       database.activities.toArray(),
       database.todoOccurrences.toArray(),
@@ -468,6 +494,8 @@ async function performSync(
       ...capabilities.map((record) => ({ entityType: 'capability' as const, record })),
       ...attachments.map((record) => ({ entityType: 'attachment' as const, record })),
       ...documentEvidence.map((record) => ({ entityType: 'documentEvidence' as const, record })),
+      ...mindNodes.map((record) => ({ entityType: 'mindNode' as const, record })),
+      ...mindEdges.map((record) => ({ entityType: 'mindEdge' as const, record })),
       ...todos.map((record) => ({ entityType: 'todo' as const, record })),
       ...activities.map((record) => ({ entityType: 'activity' as const, record })),
       ...todoOccurrences.map((record) => ({ entityType: 'todoOccurrence' as const, record })),
@@ -527,6 +555,8 @@ async function performSync(
         database.capabilities,
         database.attachments,
         database.documentEvidence,
+        database.mindNodes,
+        database.mindEdges,
         database.todos,
         database.activities,
         database.todoOccurrences,
@@ -592,6 +622,8 @@ export function startAutomaticSync(
       capabilities,
       attachments,
       documentEvidence,
+      mindNodes,
+      mindEdges,
       todos,
       activities,
       todoOccurrences,
@@ -602,6 +634,8 @@ export function startAutomaticSync(
       database.capabilities.toArray(),
       database.attachments.toArray(),
       database.documentEvidence.toArray(),
+      database.mindNodes.toArray(),
+      database.mindEdges.toArray(),
       database.todos.toArray(),
       database.activities.toArray(),
       database.todoOccurrences.toArray(),
@@ -613,6 +647,8 @@ export function startAutomaticSync(
       ...capabilities,
       ...attachments,
       ...documentEvidence,
+      ...mindNodes,
+      ...mindEdges,
       ...todos,
       ...activities,
       ...todoOccurrences,

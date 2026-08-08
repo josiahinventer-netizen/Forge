@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -88,6 +88,32 @@ describe('Drive archive', () => {
             verificationStatus: 'Document-supported',
           },
         },
+        {
+          entityType: 'mindNode',
+          recordId: 'engineering',
+          updatedAt: '2026-08-02T02:55:00.000Z',
+          deleted: false,
+          payload: {
+            id: 'engineering',
+            title: 'Engineering',
+            type: 'knowledge',
+            status: 'developing',
+            confidence: 50,
+            importance: 90,
+          },
+        },
+        {
+          entityType: 'mindEdge',
+          recordId: 'engineering-skill',
+          updatedAt: '2026-08-02T02:56:00.000Z',
+          deleted: false,
+          payload: {
+            id: 'engineering-skill',
+            source: { entityType: 'mindNode', entityId: 'engineering' },
+            target: { entityType: 'skill', entityId: 'skill-1' },
+            relationshipType: 'related to',
+          },
+        },
       ],
       '2026-08-02T03:00:00.000Z',
     );
@@ -99,6 +125,12 @@ describe('Drive archive', () => {
     expect(archive.records.reminderEvents[0]?.action).toBe('Acknowledged');
     expect(archive.records.documentEvidence[0]?.sourceName).toBe('Oregon Tech');
     expect(archiveCsvFiles(archive)['Forge Document Evidence.csv']).toContain('Oregon Tech');
+    expect(archive.records.mindNodes[0]?.title).toBe('Engineering');
+    expect(archive.records.mindEdges[0]?.target).toEqual({
+      entityType: 'skill',
+      entityId: 'skill-1',
+    });
+    expect(archiveCsvFiles(archive)['Forge Mind Nodes.csv']).toContain('Engineering');
     expect(archive.deletedRecords).toEqual([
       { entityType: 'resource', recordId: 'old', updatedAt: '2026-08-02T02:00:00.000Z' },
     ]);
@@ -127,6 +159,10 @@ describe('Drive inbox', () => {
     expect(readFileSync(join(directory, 'CHATGPT-FORGE-INSTRUCTIONS.md'), 'utf8')).toContain(
       'authorizes one non-destructive create request',
     );
+    expect(readFileSync(join(directory, 'CHATGPT-FORGE-INSTRUCTIONS.md'), 'utf8')).toContain(
+      'never invent his identity, values, beliefs',
+    );
+    expect(existsSync(join(directory, 'Forge Mind Inbox Example.json'))).toBe(true);
     const request = {
       forgeInboxVersion: 1,
       requestId: 'request-1',
@@ -188,6 +224,30 @@ describe('Drive inbox', () => {
             verificationStatus: 'Document-supported',
           },
         },
+        {
+          operation: 'save',
+          entityType: 'mindNode',
+          record: {
+            id: 'mind-welding',
+            title: 'Welding knowledge',
+            type: 'knowledge',
+            description: 'Knowledge structure for welding.',
+            status: 'developing',
+            confidence: 30,
+            importance: 70,
+          },
+        },
+        {
+          operation: 'save',
+          entityType: 'mindEdge',
+          record: {
+            id: 'mind-welding-skill',
+            source: { entityType: 'mindNode', entityId: 'mind-welding' },
+            target: { entityType: 'skill', entityId: 'skill-welding' },
+            relationshipType: 'related to',
+            notes: 'Links the concept to the existing skill without duplicating it.',
+          },
+        },
       ],
     };
     writeFileSync(join(directory, 'Inbox', 'forge-request-welding.json'), JSON.stringify(request));
@@ -219,6 +279,12 @@ describe('Drive inbox', () => {
       store.archiveRecord(account.id, 'documentEvidence', 'evidence-welding-course')?.payload
         ?.sourceName,
     ).toBe('Training record');
+    expect(store.archiveRecord(account.id, 'mindNode', 'mind-welding')?.payload?.title).toBe(
+      'Welding knowledge',
+    );
+    expect(
+      store.archiveRecord(account.id, 'mindEdge', 'mind-welding-skill')?.payload?.target,
+    ).toEqual({ entityType: 'skill', entityId: 'skill-welding' });
 
     writeFileSync(
       join(directory, 'Inbox', 'forge-request-duplicate.json'),

@@ -216,6 +216,31 @@ describe('device synchronization', () => {
       tags: [],
       archived: false,
     };
+    const mindNode = {
+      id: 'woodworking',
+      title: 'Woodworking',
+      type: 'knowledge' as const,
+      description: '',
+      notes: '',
+      status: 'developing' as const,
+      confidence: 50,
+      importance: 70,
+      createdAt: '2026-02-05T00:00:00.000Z',
+      updatedAt: '2026-02-05T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    };
+    const mindEdge = {
+      id: 'woodworking-carpentry',
+      source: { entityType: 'mindNode' as const, entityId: mindNode.id },
+      target: { entityType: 'skill' as const, entityId: local.id },
+      relationshipType: 'related to' as const,
+      notes: '',
+      createdAt: '2026-02-05T00:00:00.000Z',
+      updatedAt: '2026-02-05T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    };
     await database.skills.put(local);
     await database.syncSettings.put({
       id: 'primary',
@@ -281,16 +306,32 @@ describe('device synchronization', () => {
               deleted: false,
               payload: documentEvidence,
             },
+            {
+              revision: 12,
+              entityType: 'mindNode',
+              recordId: mindNode.id,
+              updatedAt: mindNode.updatedAt,
+              deleted: false,
+              payload: mindNode,
+            },
+            {
+              revision: 13,
+              entityType: 'mindEdge',
+              recordId: mindEdge.id,
+              updatedAt: mindEdge.updatedAt,
+              deleted: false,
+              payload: mindEdge,
+            },
           ],
-          cursor: 11,
+          cursor: 13,
         }),
       );
 
     const result = await syncNow(database, fetcher);
 
-    expect(result).toEqual({ pushed: 1, pulled: 6 });
+    expect(result).toEqual({ pushed: 1, pulled: 8 });
     expect((await database.skills.get('carpentry'))?.practicalLevel).toBe(3);
-    expect((await database.syncSettings.get('primary'))?.cursor).toBe(11);
+    expect((await database.syncSettings.get('primary'))?.cursor).toBe(13);
     expect((await database.attachments.get('photo-1'))?.ownerId).toBe('carpentry');
     expect((await database.activities.get('activity-1'))?.skillPractice[0]?.kind).toBe(
       'Troubleshooting',
@@ -298,6 +339,10 @@ describe('device synchronization', () => {
     expect((await database.todoOccurrences.get('occurrence-1'))?.todoId).toBe('routine');
     expect((await database.reminderEvents.get('reminder-1'))?.purpose).toBe('Consistency');
     expect((await database.documentEvidence.get('document-1'))?.sourceName).toBe('Oregon Tech');
+    expect((await database.mindNodes.get('woodworking'))?.type).toBe('knowledge');
+    expect((await database.mindEdges.get('woodworking-carpentry'))?.target.entityType).toBe(
+      'skill',
+    );
     expect(fetcher.mock.calls[1]?.[0]).toBe('https://computer.local:8787/api/sync/pull?cursor=0');
     const pushedBody = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
       changes: Array<{ recordId: string }>;

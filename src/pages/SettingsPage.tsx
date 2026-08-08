@@ -149,7 +149,7 @@ export function SettingsPage() {
     const bundle = await createExport();
     downloadExport(bundle);
     setStatus(
-      `Exported ${bundle.records.skills.length} skills, ${bundle.records.resources.length} resources, and ${bundle.records.capabilities.length} capabilities.`,
+      `Exported ${bundle.records.skills.length} skills, ${bundle.records.resources.length} resources, ${bundle.records.capabilities.length} capabilities, ${bundle.records.mindNodes?.length ?? 0} mind nodes, and ${bundle.records.mindEdges?.length ?? 0} relationships.`,
     );
   };
 
@@ -183,7 +183,7 @@ export function SettingsPage() {
     }
     const result = await importData(selectedBundle, mode);
     setStatus(
-      `${mode === 'merge' ? 'Merged' : 'Replaced with'} ${result.skills} skills, ${result.resources} resources, and ${result.capabilities} capabilities.`,
+      `${mode === 'merge' ? 'Merged' : 'Replaced with'} ${result.skills} skills, ${result.resources} resources, ${result.capabilities} capabilities, ${result.mindNodes} mind nodes, and ${result.mindEdges} relationships.`,
     );
     setSelectedBundle(null);
     setSelectedName('');

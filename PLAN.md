@@ -1,5 +1,7 @@
 # Forge V1 Implementation Plan
 
+Forge is evolving into a local-first personal operating system and self-improvement knowledge graph. The long-term connective model should help answer: **Who am I? What do I know? Where am I going?** Native mind nodes hold concepts and self-model entries supplied by the user; first-class relationships connect them to each other and to existing Forge records without duplication.
+
 ## Stage 1 — First vertical slice (complete)
 
 - [x] React, strict TypeScript, Vite, routing, ESLint, and Prettier foundation
@@ -52,7 +54,30 @@
 - [x] Evidence history with multiple attributed document sources linked to skills and activities
 - [x] Explainable seven-day summaries and guided manual level-review suggestions
 
-## Later stages (not started)
+## Stage 8 — Mind graph foundation (complete)
+
+- [x] Persistent typed `MindNode` records for values, beliefs, principles, identity, goals, interests, knowledge, concepts, projects, people, experiences, habits, questions, and custom types
+- [x] Persistent typed `MindEdge` records with extensible semantic relationship types and notes
+- [x] Entity references that connect mind nodes to existing skills, resources, capabilities, todos, and activities without copying those records
+- [x] Dexie schema 14 migration preserving every existing table and record
+- [x] Create, view, edit, search, filter, and archive mind nodes
+- [x] Create, view, edit, validate, and archive relationships
+- [x] Focused incoming/outgoing branch visualization with mobile layout and keyboard-accessible controls
+- [x] Confidence, importance, optional understanding/practical levels, status, nuance, and attributed document evidence
+- [x] JSON import/export, device sync, Drive archive/CSV/inbox, and local MCP read integration
+- [x] Migration, CRUD, relationship-integrity, archive, transfer, Drive, and sync tests
+
+## Mind graph later slices (not started)
+
+1. Core Values and Beliefs workspace with explicit evidence, counterevidence, change history, and tensions
+2. Broader knowledge explorer with questions, prerequisites, child concepts, review dates, and deterministic gap analysis
+3. Goal → capability → skill → knowledge and project-requirement views
+4. Personal timeline for experiences, accomplishments, decisions, reflections, and lessons learned
+5. Expand/collapse, multi-hop branch traversal, graph filters, and optional presentation positions
+6. Meaningful coverage and progression views derived from evidence—not arbitrary XP
+7. Optional graph-assisted recommendations and AI assistance only after deterministic foundations are trustworthy
+
+## Other later stages (not started)
 
 1. Longer-term activity trends beyond the implemented selectable 7-, 30-, and 90-day comparison
 2. Bored Mode recommendation engine

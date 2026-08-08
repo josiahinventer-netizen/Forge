@@ -90,6 +90,47 @@ describe('import validation', () => {
     });
   });
 
+  it('validates mind nodes and relationship endpoint integrity', () => {
+    const backup = bundle([
+      skill('troubleshooting', 'Troubleshooting', '2026-08-01T00:00:00.000Z'),
+    ]);
+    backup.records.mindNodes = [
+      {
+        id: 'robotics',
+        title: 'Robotics',
+        type: 'knowledge',
+        description: '',
+        notes: '',
+        status: 'developing',
+        confidence: 40,
+        importance: 90,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+        tags: [],
+        archived: false,
+      },
+    ];
+    backup.records.mindEdges = [
+      {
+        id: 'robotics-troubleshooting',
+        source: { entityType: 'mindNode', entityId: 'robotics' },
+        target: { entityType: 'skill', entityId: 'troubleshooting' },
+        relationshipType: 'requires',
+        notes: '',
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+        tags: [],
+        archived: false,
+      },
+    ];
+    expect(validateImport(backup).valid).toBe(true);
+    backup.records.mindEdges[0]!.target.entityId = 'missing-skill';
+    expect(validateImport(backup)).toEqual({
+      valid: false,
+      errors: ['Mind relationship robotics-troubleshooting has a missing target.'],
+    });
+  });
+
   it('rejects malformed records, duplicate IDs, and future schemas', () => {
     const malformed = validateImport({
       ...bundle([]),
@@ -155,6 +196,21 @@ describe('import application', () => {
       tags: [],
       archived: false,
     });
+    await database.mindNodes.put({
+      id: 'old-node',
+      title: 'Old node',
+      type: 'custom',
+      customType: 'Legacy thought',
+      description: '',
+      notes: '',
+      status: 'paused',
+      confidence: 20,
+      importance: 20,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+      tags: [],
+      archived: false,
+    });
 
     await importData(
       bundle([skill('incoming', 'Replacement', '2026-08-02T00:00:00.000Z')]),
@@ -166,5 +222,7 @@ describe('import application', () => {
     expect(await database.resources.count()).toBe(0);
     expect(await database.capabilities.count()).toBe(0);
     expect(await database.todos.count()).toBe(0);
+    expect(await database.mindNodes.count()).toBe(0);
+    expect(await database.mindEdges.count()).toBe(0);
   });
 });

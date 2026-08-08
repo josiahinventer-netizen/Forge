@@ -357,6 +357,19 @@ describe('incremental account-isolated synchronization', () => {
     ).toBe(true);
     expect(
       validateSyncChange({
+        entityType: 'mindEdge',
+        recordId: 'robotics-troubleshooting',
+        updatedAt: '2026-08-02T12:00:00.000Z',
+        deleted: false,
+        payload: {
+          id: 'robotics-troubleshooting',
+          source: { entityType: 'mindNode', entityId: 'robotics' },
+          target: { entityType: 'skill', entityId: 'troubleshooting' },
+        },
+      }),
+    ).toBe(true);
+    expect(
+      validateSyncChange({
         entityType: 'unknown',
         recordId: '',
         updatedAt: 'later',

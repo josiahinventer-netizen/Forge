@@ -1,6 +1,6 @@
 # Forge
 
-Forge is a local-first personal development PWA. It records skills and resources, then uses those records to calculate what the user may currently be capable of doing. Data remains in the browser's IndexedDB and can be exported as human-readable JSON. No account, backend, or paid service is required.
+Forge is a local-first personal operating system and self-improvement knowledge graph. It records the user's own skills, resources, work, plans, concepts, and self-model, then connects them without inventing claims or hiding the underlying evidence. Data remains authoritative in the browser's IndexedDB and can be exported as human-readable JSON. No paid service is required.
 
 ## Current implementation
 
@@ -12,6 +12,9 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Resource intelligence for durable assets and consumables, including manufacturer, model, serial number, lifecycle, maintenance, value, verification status, and evidence notes
 - Phone camera/file evidence for resources, skills, and activities, resized before storage, deduplicated per record by SHA-256, synchronized as bounded attachment records, and mirrored into Google Drive for ChatGPT
 - Attributed non-image evidence for resources, skills, and activities, including resumes, coursework, certificates, manuals, receipts, web references, excerpts, uncertainty notes, and verification status
+- Mind graph with persistent values, beliefs, goals, knowledge concepts, questions, and custom nodes
+- First-class semantic relationships between mind nodes and existing skills, resources, capabilities, todos, or activities—without duplicating those records
+- Searchable/filterable focused branch explorer showing incoming and outgoing connections
 - Purpose-aware todos with priorities, scheduling, due times, duration estimates, reminder lead times, linked Forge records, completion notes, and in-app overdue/reminder banners
 - Daily, weekly, and monthly recurring todos that advance after completion while preserving occurrence history
 - Opt-in system notifications and browser speech dictation for fast todo capture
@@ -29,12 +32,12 @@ Forge is a local-first personal development PWA. It records skills and resources
 - Live Available, Partially available, or Blocked calculations
 - Structured and plain-language missing requirements with a recommended next step
 - Dashboard capability counts derived from current records
-- Versioned Dexie schema with tested migrations through schema version 12
+- Versioned Dexie schema with tested migrations through schema version 14
 - JSON export containing app/schema metadata plus active and archived records
 - Validated JSON import with conflict-safe merge and explicitly confirmed replacement
 - PWA manifest, service worker, application-shell caching, and offline indicator
 
-Weekly activity summaries, guaranteed closed-app alarms, Bored Mode, health tracking, civilization scoring, knowledge entries, and onboarding are not implemented. See [PLAN.md](./PLAN.md) for staged work. In-app reminders and opt-in system notifications work while Forge is allowed to run; browsers and Android may suspend a closed PWA, so Forge does not claim guaranteed closed-app alarm delivery.
+Guaranteed closed-app alarms, Bored Mode, health tracking, civilization scoring, knowledge-gap analysis, graph recommendations, and onboarding are not implemented. See [PLAN.md](./PLAN.md) for staged work. In-app reminders and opt-in system notifications work while Forge is allowed to run; browsers and Android may suspend a closed PWA, so Forge does not claim guaranteed closed-app alarm delivery.
 
 ## Run locally
 
@@ -187,9 +190,19 @@ All records are stored locally using Dexie and IndexedDB. Use **Data → Export 
 
 When a device is connected under **Data â†’ Computer synchronization**, Forge observes local record changes and synchronizes them automatically after a short debounce. The computer maintains an authenticated waiting connection that wakes other open Forge devices when changes arrive. Forge also synchronizes at startup, when connectivity returns, and every 30 seconds as a fallback. If the browser suspends or closes the PWA, queued record state converges automatically on its next launch. Passwords are not saved on the device. Exported and imported files are never sent automatically.
 
+## Mind graph foundation
+
+Open **Mind** to create the native concepts that describe the user's self-model or knowledge structure. The first version supports identity, value, belief, principle, goal, interest, knowledge, concept, project, person, experience, habit, question, and custom node types. A node can record description, nuanced notes, tags, status, confidence, importance, optional understanding and practical levels, and attributed document evidence. Forge never seeds values, beliefs, or a technology tree—the graph emerges only from user-entered data and sources.
+
+Relationships are separate `MindEdge` records. Each edge has typed source and target references, a semantic relationship such as `part of`, `depends on`, `prerequisite for`, `supports`, or a custom label, plus notes and archive history. At least one endpoint is a native mind node; the other may be another mind node or an existing Forge skill, resource, capability, todo, or activity. This is how a `Robotics` concept can require the existing `Troubleshooting` skill without creating a second skill copy.
+
+The initial visualization is a responsive focused-branch explorer: select or search a node to see records pointing into it and outward from it. This deliberately stores no required screen coordinates. Canvas layout, pan/zoom, collapse, multi-hop traversal, automatic ontology creation, knowledge-gap recommendations, AI generation, and game-like progression are deferred until the semantic model has more real user data.
+
+Mind nodes and relationships are included in JSON import/export, independent device synchronization, `Forge Archive.json`, Excel-compatible Drive CSV views, validated Drive inbox operations, and local MCP search/get tools. IndexedDB schema 14 adds the two tables without rewriting prior records.
+
 ## Attributed document evidence
 
-Open an existing skill, resource, or activity and use **Document evidence** to record what a resume, transcript or course, certificate, manual, receipt, website, or personal note actually supports. Each entry retains its source or issuer, optional HTTP(S) link and date, relevant excerpt, interpretation limits, and verification status. These entries do not automatically increase skill levels or claim that a document proves hands-on ability. Archive confirmation preserves old evidence in synchronization and JSON history.
+Open an existing skill, resource, activity, or mind node and use **Document evidence** to record what a resume, transcript or course, certificate, manual, receipt, website, or personal note actually supports. Each entry retains its source or issuer, optional HTTP(S) link and date, relevant excerpt, interpretation limits, and verification status. These entries do not automatically increase skill levels or claim that a document proves hands-on ability. Archive confirmation preserves old evidence in synchronization and JSON history.
 
 Document evidence is stored as a separate stable-ID record in IndexedDB schema 13, synchronized independently, included in JSON transfer, and mirrored into `Forge Archive.json` and `Excel/Forge Document Evidence.csv`. Forge records citations and excerpts rather than copying source documents, so the user remains responsible for retaining the original resume, transcript, receipt, or certificate.
 
@@ -235,10 +248,14 @@ Imports are parsed and fully validated before any IndexedDB write. This remains 
 - Create a capability with multiple skill and resource requirements.
 - Change a linked skill level or resource quantity and confirm capability status updates.
 - Archive a required skill or resource and confirm the capability explains the shortfall.
-- Export JSON and confirm active and archived skills, resources, and capabilities are present.
+- Create a value, belief, knowledge concept, and custom node in Mind; edit one and archive one.
+- Connect two mind nodes, then connect a node to an existing skill and verify both appear in the focused branch.
+- Edit and archive a relationship and confirm its record remains in exported history.
+- Search and filter Mind nodes at desktop and phone widths.
+- Export JSON and confirm active and archived skills, resources, capabilities, mind nodes, and relationships are present.
 - Import that file using Merge and confirm records are not duplicated.
 - Select Replace, cancel the confirmation, and confirm local records remain unchanged.
-- At a narrow viewport, verify all five destinations appear in the bottom navigation.
+- At a narrow viewport, verify every destination remains reachable in the horizontally scrollable bottom navigation.
 - Build and serve the production app, go offline, reload, and verify the shell opens.
 
 ## Architecture
@@ -251,4 +268,4 @@ Imports are parsed and fully validated before any IndexedDB write. This remains 
 - `src/tests` — database, migration, and export tests
 
 Current app version: **1.0.0**  
-Current database schema version: **12**
+Current database schema version: **14**
